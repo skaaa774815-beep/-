@@ -410,7 +410,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-tab_analyze, tab_database, tab_build = st.tabs(["📷 画像解析", "🗃️ データベース", "🛠️ デッキ作成","🆙 画像更新"])
+tab_analyze, tab_database, tab_build, tab_update = st.tabs(["📷 画像解析", "🗃️ データベース", "🛠️ デッキ作成","🆙 画像更新"])
 
 # ==========================================
 # タブ1：デッキ画像解析
@@ -562,7 +562,7 @@ with tab_database:
                     for sub_g in group_df["小分類"].unique():
                         sub_df = group_df[group_df["小分類"] == sub_g]
                         st.markdown(f"**📂 {sub_g}**")
-                        render_image_gallery([{"name": r["カード名"], "path": r["画像パス"]} for _, r in sub_df.iterrows()])
+                        render_image_gallery([{"name": r["カード名"], "path_or_url": r["画像パス"]} for _, r in sub_df.iterrows()])
 
 # ==========================================
 # タブ3：デッキ作成
@@ -683,13 +683,13 @@ with tab_build:
                             if st.session_state.deck_actions.count(card["name"]) < 1: can_add = True
                         else:
                             if st.session_state.deck_actions.count(card["name"]) < 2: can_add = True
-                
-                if can_add: st.button("➕ 追加", key=f"add_{i}_{card['name']}", on_click=add_to_deck, args=(card["name"], main_g))
-                else: st.button("上限です", key=f"max_{i}_{card['name']}", disabled=True)
+                            
+                            if can_add: st.button("➕ 追加", ...)
+                            else: st.button("上限です", ...)
          
                 
 # ==========================================
-# タブ4：画像更新（いたずら防止ガード付き）
+# タブ4：画像更新
 # ==========================================
 with tab_update:
     st.title("🆙 カード画像アップグレード")
