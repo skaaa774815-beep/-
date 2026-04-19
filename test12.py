@@ -744,6 +744,8 @@ with tab_update:
                 with st.container():
                     st.markdown(f"#### 📸 ファイル: {uploaded_file.name}")
                     
+                    full_width_msg = st.empty()
+                    
                     # 3列で比較表示
                     col1, col2, col3 = st.columns([1, 1, 1])
                     
@@ -794,13 +796,14 @@ with tab_update:
                                             get_cloudinary_urls.clear()
                                             build_database.clear()
                                             
-                                        st.success(f"✅ {best_match_name} をクラウドに保存しました！(全ユーザーに反映されます)")
+                                        full_width_msg.success(f"✅ {best_match_name} をクラウドに保存しました！(全ユーザーに反映されます)")
                                     else:
-                                        st.warning("画質が低下するため保存をスキップしました。")
+                                        full_width_msg.warning("画質が低下するため保存をスキップしました。")
                             
                             with confirm_col2:
                                 if st.button(f"❌ 違う (No)", key=f"no_{i}_{best_match_name}"):
-                                    st.error("更新をキャンセルしました。")
+                                    # 🔴 st.error を full_width_msg.error に変更
+                                    full_width_msg.error("更新をキャンセルしました。")
 
                         with col3:
                             # 現在登録されている画像を表示
