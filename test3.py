@@ -26,7 +26,9 @@ st.markdown("""
 <style>
 div[data-testid="stImage"] {
     width: 100% !important;
-    aspect-ratio: 1 / 1.45 !important;
+    max-width: 105px !important;
+    aspect-ratio: 105 / 180 !important;
+    margin: 0 auto !important;
     overflow: hidden !important;
     border-radius: 8px !important;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
@@ -223,23 +225,22 @@ def get_image_base64(path):
 
 def render_image_html(img_src):
     return f"""
-    <div style="width: 100%; aspect-ratio: 1 / 1.45; overflow: hidden; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background-color: #333; margin-bottom: 5px;">
+    <div style="width: 100%; max-width: 105px; aspect-ratio: 105 / 180; margin: 0 auto 5px auto; overflow: hidden; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background-color: #333;">
         <img src="{img_src}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
     </div>
     """
-
 def render_image_gallery(cards_list):
     html = """
     <style>
     .responsive-gallery {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 10px;
         margin-bottom: 20px;
     }
     .gallery-item { display: flex; flex-direction: column; align-items: center; }
     .gallery-item img {
-        width: 100%; aspect-ratio: 1 / 1.45; object-fit: cover;
+        width: 100%; max-width: 105px; aspect-ratio: 105 / 180; object-fit: cover;
         border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;
     }
     .gallery-item img:hover { transform: scale(1.05); }
