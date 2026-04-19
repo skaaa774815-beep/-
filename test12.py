@@ -691,55 +691,89 @@ with tab_build:
 # タブ4：画像更新
 # ==========================================
 with tab_update:
-    st.title("🆙 カード画像アップグレード")
-    st.write("高解像度な画像（カード名.png）をアップロードしてDBを強化します。")
-    
-    with st.expander("🛡️ セキュリティ・ガード機能について"):
-        st.write("当アプリは、アップロードされた画像の中身を解析しています。")
-        st.write("- **名前一致チェック**: DBにない名前のファイルは拒否されます。")
-        st.write("- **中身一致チェック**: ファイル名と画像の中身が著しく異なる（別のカードや無関係な画像）場合は、保存をブロックします。")
+    st.title("🆙 カード判定・手動確認アップグレード")
+    st.write("画像をアップロードすると、AIがどのカードか判定します。内容を確認して「更新」ボタンを押してください。")
 
-    uploaded_files = st.file_uploader("画像をアップロード（複数可）", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="bulk_update")
+    uploaded_files = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="bulk_update")
 
     if uploaded_files:
-        db_names = [c["name"] for c in st.session_state.cards_db]
-        
-        for uploaded_file in uploaded_files:
-            card_name = os.path.splitext(uploaded_file.name)[0]
+        if not db_hashes:
+            st.error("比較対象のデータがありません。先に「データを再読み込み」を行ってください。")
+        else:
+            st.markdown("### 🔍 判定結果の確認")
             
-            # 1. 存在チェック
-            if card_name not in db_names:
-                st.error(f"❌ 拒否: '{card_name}' はデータベースに存在しません。")
-                continue
+            for i, uploaded_file in enumerate(uploaded_files):
+                # 1. 画像読み込みと特徴抽出
+                new_img = Image.open(uploaded_file).convert("RGB")
+                new_hash = get_image_hash(new_img)
+                
+                best_match_name = None
+                min_diff = 256
+                
+                # 全DBと照合
+                for card_name, db_h in db_hashes.items():
+                    diff = np.count_nonzero(new_hash != db_h)
+                    if diff < min_diff:
+                        min_diff = diff
+                        best_match_name = card_name
+                
+                # 2. 表示エリアの作成
+                with st.container():
+                    st.markdown(f"#### 📸 ファイル: {uploaded_file.name}")
+                    
+                    # 3列で比較表示
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    
+                    with col1:
+                        st.image(new_img, caption="アップロードされた画像", use_container_width=True)
+                    
+                    # 判定に成功した場合
+                    if best_match_name and min_diff < 85: # しきい値は少し緩めに設定
+                        match_rate = ((256 - min_diff) / 256) * 100
+                        
+                        with col2:
+                            # 判定されたカードの情報
+                            st.info(f"**AI判定: {best_match_name}**")
+                            st.write(f"一致度: {match_rate:.1f}%")
+                            
+                            # 画質チェック用データの準備
+                            new_q = new_img.size[0] * new_img.size[1]
+                            curr_q = 0
+                            local_path = os.path.join(cache_dir, f"{best_match_name}.png")
+                            
+                            if os.path.exists(local_path):
+                                with Image.open(local_path) as ci: curr_q = ci.size[0] * ci.size[1]
+                            
+                            st.write(f"解像度: {'↑ 向上' if new_q > curr_q else '↓ 低下または維持'}")
+                            
+                            # --- YES / NO 確認ボタン ---
+                            # 個別のボタンにするためkeyにindex(i)を含める
+                            confirm_col1, confirm_col2 = st.columns(2)
+                            with confirm_col1:
+                                if st.button(f"✅ 更新 (Yes)", key=f"yes_{i}_{best_match_name}"):
+                                    if new_q > curr_q:
+                                        new_img.save(local_path)
+                                        # キャッシュ削除
+                                        t_path = os.path.join(cache_dir, f"{best_match_name}_thumb.png")
+                                        if os.path.exists(t_path): os.remove(t_path)
+                                        st.success(f"{best_match_name} を更新しました！")
+                                    else:
+                                        st.warning("画質が低下するため保存をスキップしましたが、名前は確定しました。")
+                            
+                            with confirm_col2:
+                                if st.button(f"❌ 違う (No)", key=f"no_{i}_{best_match_name}"):
+                                    st.error("更新をキャンセルしました。")
 
-            # 2. 中身の一致チェック（ハッシュ比較によるいたずら防止）
-            new_img = Image.open(uploaded_file).convert("RGB")
-            new_hash = get_image_hash(new_img)
-            
-            if card_name in db_hashes:
-                diff = np.count_nonzero(new_hash != db_hashes[card_name])
-                # 距離が85以上なら「全然違う画像」と判断
-                if diff > 85:
-                    st.error(f"🚨 警告: '{card_name}' としてアップロードされた画像は、中身が別のカードのようです。更新を中止しました。")
-                    continue
-            
-            # 3. 画質（解像度）チェック
-            target = next(c for c in st.session_state.cards_db if c["name"] == card_name)
-            new_q = new_img.size[0] * new_img.size[1]
-            curr_q = 0
-            
-            # 現在のローカル画像の画質を確認
-            local_path = os.path.join(cache_dir, f"{card_name}.png")
-            if os.path.exists(local_path):
-                with Image.open(local_path) as ci: curr_q = ci.size[0] * ci.size[1]
-            
-            if new_q > curr_q:
-                new_img.save(local_path)
-                # 古いサムネイルがあれば削除
-                t_path = os.path.join(cache_dir, f"{card_name}_thumb.png")
-                if os.path.exists(t_path): os.remove(t_path)
-                st.success(f"✅ {card_name} を高画質版に更新しました！")
-            else:
-                st.info(f"ℹ️ {card_name} は現在の画像の方が高画質なため、変更しませんでした。")
+                        with col3:
+                            # 現在登録されている画像を表示
+                            card_info = next((c for c in st.session_state.cards_db if c["name"] == best_match_name), None)
+                            if card_info:
+                                current_src = get_image_base64(card_info["path_or_url"], best_match_name)
+                                st.image(current_src, caption="現在の登録画像", use_container_width=True)
+                    else:
+                        with col2:
+                            st.error("⚠️ カードを特定できませんでした。")
+                    
+                    st.divider() # 区切り線
 
-    st.warning("反映させるには左側の「データを再読み込み」を押してください。")
+    st.warning("更新を反映させるには、完了後に左側の「データを再読み込み」を押してください。")
