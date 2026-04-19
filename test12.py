@@ -39,14 +39,11 @@ st.markdown("""
 <style>
 /* 画面幅が768px以下（スマホなど）の時だけ適用するルール */
 @media (max-width: 768px) {
-    [data-testid="stImage"] {
-        display: flex !important;
-        justify-content: center !important;
-    }
-    [data-testid="stImage"] img {
-        max-width: 250px !important; /* スマホでの最大の横幅 */
-        width: auto !important;      /* Streamlitの「絶対100%にする」設定を打ち消す */
-        height: auto !important;
+    /* 画像そのものではなく、画像を包んでいる「外枠」を強制的に縮める */
+    div[data-testid="stImage"] {
+        width: 250px !important;
+        max-width: 250px !important;
+        margin: 0 auto !important; /* 中央寄せ */
     }
 }
 </style>
