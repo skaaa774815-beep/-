@@ -216,26 +216,26 @@ def load_db_hashes(db):
 
 @st.cache_data
 def get_image_base64(path):
-    if str(path).startswith("http"): return path
+    if str(path).startswith("http"): 
+        return path
     
-    # ① まずは素直にHTMLに書かれたパス（例: genshin_page_files/ダリア.png）を探す
+    # ① まずは素直に探す
     try:
         with open(path, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
             return f"data:image/png;base64,{data}"
     except:
-        pass # 見つからなくてもエラーにせず、次の作戦へ！
+        pass
         
-    # ② 【裏ワザ発動】HTMLのフォルダ名を無視して、card_images の中を強制捜索する！
+    # ② card_images フォルダの中を強制的に探す
     try:
-        filename = os.path.basename(path)  # 邪魔なフォルダ名を消して「ダリア.png」だけにする
+        filename = os.path.basename(path)
         fallback_path = os.path.join("card_images", filename)
         with open(fallback_path, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
             return f"data:image/png;base64,{data}"
     except Exception as e:
-        # ③ これでもダメなら、Streamlitの裏側のログにエラー原因を出力する
-        print(f"🚨画像エラー🚨: [{filename}] が読み込めません。原因: {e}")
+        print(f"🚨画像が見つかりません: {filename}")
         return ""
 
 def render_image_html(img_src):
