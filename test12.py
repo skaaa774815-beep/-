@@ -18,6 +18,18 @@ import re
 import json
 import base64
 from io import BytesIO
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# Cloudinaryの初期設定
+if "cloudinary" in st.secrets:
+    cloudinary.config(
+        cloud_name = st.secrets["cloudinary"]["cloud_name"],
+        api_key = st.secrets["cloudinary"]["api_key"],
+        api_secret = st.secrets["cloudinary"]["api_secret"],
+        secure = True
+    )
 
 # --- ページ設定 ---
 st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wide", initial_sidebar_state="expanded")
@@ -81,6 +93,20 @@ if "deck_actions" not in st.session_state: st.session_state.deck_actions = []
 cache_dir = "card_images"
 if not os.path.exists(cache_dir): os.makedirs(cache_dir)
 
+@st.cache_data(ttl=3600) # 1時間キャッシュしてAPI制限を防ぐ
+def get_cloudinary_urls():
+    urls = {}
+    if "cloudinary" not in st.secrets: return urls
+    try:
+        # tcg_cards フォルダ内の画像を最大500枚取得
+        res = cloudinary.api.resources(type="upload", prefix="tcg_cards/", max_results=500)
+        for item in res.get('resources', []):
+            name = item['public_id'].split('/')[-1] # "tcg_cards/カード名" から名前を抽出
+            urls[name] = item['secure_url']
+    except Exception as e:
+        print("Cloudinary fetch error:", e)
+    return urls
+
 # --- タグ設定 ---
 CUSTOM_TAG_ORDER = [
     "氷", "水", "炎", "雷", "風", "岩", "草",
@@ -134,19 +160,16 @@ def build_database():
 
     # 画質（総画素数）を取得する関数
     def get_image_quality(path_or_url):
-        # URLではなくローカルのファイルパスならサイズを確認
         local_path = os.path.join(cache_dir, os.path.basename(str(path_or_url)))
         if os.path.exists(local_path):
             try:
-                with Image.open(local_path) as img:
-                    return img.size[0] * img.size[1]
+                with Image.open(local_path) as img: return img.size[0] * img.size[1]
             except: return 1
         elif not str(path_or_url).startswith("http") and os.path.exists(str(path_or_url)):
             try:
-                with Image.open(str(path_or_url)) as img:
-                    return img.size[0] * img.size[1]
+                with Image.open(str(path_or_url)) as img: return img.size[0] * img.size[1]
             except: return 1
-        return 0 # Web上の画像（まだダウンロードされていない）
+        return 0
 
     # より高画質なら登録/上書きする関数
     def update_if_better(name, path_or_url, genre, default_sub):
@@ -155,10 +178,8 @@ def build_database():
         
         actual_genre = override_genre.get(name, genre)
         actual_sub = "プレイアブル" if actual_genre == "キャラカード" else "天賦" if actual_genre == "天賦カード" else default_sub
-        
         quality = get_image_quality(path_or_url)
         
-        # 新規、または既存の画像より画質が良い場合に更新
         if name not in best_cards or quality > best_cards[name]["quality"]:
             best_cards[name] = {
                 "name": name,
@@ -179,7 +200,6 @@ def build_database():
             name = a_tag.get_text().strip(); url = img.get('data-original') or img.get('src', '')
             if not name or not url or ".svg" in url.lower(): continue
             if url.startswith('//'): url = 'https:' + url
-            
             update_if_better(name, url, genre if genre != "天賦カード" else "装備カード", "基本（未分類）")
 
     # 2. ローカルHTML(genshin_page.html)からの取得
@@ -205,18 +225,24 @@ def build_database():
                             img_path = img.get('src', '').replace('./', '')
                             update_if_better(name, img_path, current_genre, "基本（未分類）")
 
-    # 3. フォルダ(card_images)からの直接取得（手動で入れた高画質版を優先させる）
+    # 3. フォルダ(card_images)からの直接取得
     if os.path.exists(cache_dir):
         for filename in os.listdir(cache_dir):
             if filename.lower().endswith((".png", ".jpg", ".jpeg")) and "_thumb" not in filename:
                 name = os.path.splitext(filename)[0]
                 local_path = os.path.join(cache_dir, filename)
-                
-                # すでにHTMLでジャンルが判明している場合はそれを引き継ぎ、新規なら「未分類」にする
                 existing_genre = best_cards[name]["main_genre"] if name in best_cards else "未分類カード"
                 existing_sub = best_cards[name]["default_sub"] if name in best_cards else "基本（未分類）"
-                
                 update_if_better(name, local_path, existing_genre, existing_sub)
+
+    # 4. 【追加】Cloudinaryからの取得（最強画質として上書き！）
+    cloud_urls = get_cloudinary_urls()
+    for name, url in cloud_urls.items():
+        if name in best_cards:
+            best_cards[name]["path_or_url"] = url
+            best_cards[name]["quality"] = float('inf') # クラウドの画像を最高画質として扱う
+        else:
+            best_cards[name] = {"name": name, "path_or_url": url, "main_genre": "未分類", "default_sub": "基本（未分類）", "quality": float('inf')}
 
     # 最終的なリスト（辞書から配列）に変換
     db = []
@@ -241,24 +267,21 @@ def get_image_hash(pil_img):
 def load_db_hashes(db):
     db_hashes = {}
     for card in db:
-        # サムネイル画像のパス（無ければ生成する処理を必要に応じて追加）
-        safe_name = re.sub(r'[\\/:*?"<>|]', '_', card["name"])
-        thumb_path = os.path.join(cache_dir, f"{safe_name}_thumb.png")
+        name = card["name"]
+        path_or_url = card["path_or_url"]
+        local_p = os.path.join(cache_dir, f"{name}.png")
         
-        # もしサムネイルが無ければ、元の高画質画像から直接ハッシュを作る
-        target_img_path = thumb_path
-        if not os.path.exists(thumb_path):
-            # card_imagesフォルダ内にある本体を探す
-            for ext in [".png", ".jpg", ".jpeg", ".PNG", ".JPG"]:
-                p = os.path.join(cache_dir, f"{card['name']}{ext}")
-                if os.path.exists(p):
-                    target_img_path = p
-                    break
-                    
-        if os.path.exists(target_img_path):
+        # 1. ローカルに画像があればハッシュ化
+        if os.path.exists(local_p):
+            try: db_hashes[name] = get_image_hash(Image.open(local_p))
+            except: pass
+        # 2. クラウドにしかない場合は、ダウンロードしてローカルに保存してからハッシュ化
+        elif str(path_or_url).startswith("http"):
             try:
-                pil_img = Image.open(target_img_path)
-                db_hashes[card["name"]] = get_image_hash(pil_img)
+                response = requests.get(path_or_url)
+                img = Image.open(BytesIO(response.content))
+                img.save(local_p)
+                db_hashes[name] = get_image_hash(img)
             except: pass
     return db_hashes
 
@@ -752,13 +775,28 @@ with tab_update:
                             with confirm_col1:
                                 if st.button(f"✅ 更新 (Yes)", key=f"yes_{i}_{best_match_name}"):
                                     if new_q > curr_q:
-                                        new_img.save(local_path)
-                                        # キャッシュ削除
-                                        t_path = os.path.join(cache_dir, f"{best_match_name}_thumb.png")
-                                        if os.path.exists(t_path): os.remove(t_path)
-                                        st.success(f"{best_match_name} を更新しました！")
+                                        with st.spinner("☁️ クラウドにアップロード中..."):
+                                            # 画像をメモリ上のデータに変換
+                                            buf = BytesIO()
+                                            new_img.save(buf, format="PNG")
+                                            
+                                            # Cloudinaryへアップロード
+                                            cloudinary.uploader.upload(
+                                                buf.getvalue(),
+                                                folder="tcg_cards", # Cloudinary内のフォルダ名
+                                                public_id=best_match_name,
+                                                overwrite=True
+                                            )
+                                            # ローカルにも保存しておく（ハッシュ計算や高速化のため）
+                                            new_img.save(local_path)
+                                            
+                                            # キャッシュをクリアして最新を読み込ませる
+                                            get_cloudinary_urls.clear()
+                                            build_database.clear()
+                                            
+                                        st.success(f"✅ {best_match_name} をクラウドに保存しました！(全ユーザーに反映されます)")
                                     else:
-                                        st.warning("画質が低下するため保存をスキップしましたが、名前は確定しました。")
+                                        st.warning("画質が低下するため保存をスキップしました。")
                             
                             with confirm_col2:
                                 if st.button(f"❌ 違う (No)", key=f"no_{i}_{best_match_name}"):
