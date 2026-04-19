@@ -34,6 +34,23 @@ if "cloudinary" in st.secrets:
 # --- ページ設定 ---
 st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wide", initial_sidebar_state="expanded")
 
+# --- 👇 ここから追加（スマホ画面用の画像サイズ調整） 👇 ---
+st.markdown("""
+<style>
+/* 画面幅が768px以下（スマホなど）の時だけ適用するルール */
+@media (max-width: 768px) {
+    [data-testid="stImage"] img {
+        max-width: 250px !important; /* 画像の最大幅を制限（数字を変えてお好みのサイズに） */
+        margin: 0 auto; /* 画像を中央寄せにする */
+    }
+    [data-testid="stImage"] {
+        display: flex;
+        justify-content: center;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --- グローバルCSS設定 ---
 st.markdown("""
 <style>
