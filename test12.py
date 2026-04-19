@@ -37,13 +37,20 @@ st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wi
 # --- 👇 ここから追加（スマホ画面用の画像サイズ調整） 👇 ---
 st.markdown("""
 <style>
-/* 画面幅が768px以下（スマホなど）の時だけ適用するルール */
+/* 画面幅が768px以下（スマホ等）の時だけ適用 */
 @media (max-width: 768px) {
-    /* 画像そのものではなく、画像を包んでいる「外枠」を強制的に縮める */
+    /* 画像を中央に配置する */
     div[data-testid="stImage"] {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+    }
+    /* Streamlitが直接書き込むwidthを、強引に250pxで固定する */
+    div[data-testid="stImage"] img {
         width: 250px !important;
+        min-width: 250px !important;
         max-width: 250px !important;
-        margin: 0 auto !important; /* 中央寄せ */
+        height: auto !important;
     }
 }
 </style>
