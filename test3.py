@@ -219,7 +219,6 @@ def get_image_base64(path):
     if str(path).startswith("http"): 
         return path
     
-    # ① まずは素直に探す
     try:
         with open(path, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
@@ -227,15 +226,19 @@ def get_image_base64(path):
     except:
         pass
         
-    # ② card_images フォルダの中を強制的に探す
     try:
+        import urllib.parse  # ←★暗号を解読するツールを呼び出す
+        
         filename = os.path.basename(path)
-        fallback_path = os.path.join("card_images", filename)
+        # ★ここで「%E3%83...」みたいな暗号を「ダリア.png」に戻す！
+        decoded_filename = urllib.parse.unquote(filename) 
+        
+        fallback_path = os.path.join("card_images", decoded_filename)
         with open(fallback_path, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
             return f"data:image/png;base64,{data}"
     except Exception as e:
-        print(f"🚨画像が見つかりません: {filename}")
+        print(f"🚨画像が見つかりません: {path}")
         return ""
 
 def render_image_html(img_src):
