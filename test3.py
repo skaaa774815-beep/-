@@ -219,27 +219,24 @@ def get_image_base64(path):
     if str(path).startswith("http"): 
         return path
     
-    try:
-        with open(path, "rb") as f:
+    import os
+    import base64
+
+    # ① パス（例: genshin_page_files/card_570.png）から、
+    # 最後のファイル名（card_570.png）だけを抜き出す
+    filename = os.path.basename(str(path).replace("\\", "/").replace("./", ""))
+    
+    # ② GitHub上にある「card_images」フォルダの中を、抜き出したファイル名で探す
+    target_path = os.path.join("card_images", filename)
+    
+    if os.path.exists(target_path):
+        with open(target_path, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
             return f"data:image/png;base64,{data}"
-    except:
-        pass
-        
-    try:
-        import urllib.parse  # ←★暗号を解読するツールを呼び出す
-        
-        filename = os.path.basename(path)
-        # ★ここで「%E3%83...」みたいな暗号を「ダリア.png」に戻す！
-        decoded_filename = urllib.parse.unquote(filename) 
-        
-        fallback_path = os.path.join("card_images", decoded_filename)
-        with open(fallback_path, "rb") as f:
-            data = base64.b64encode(f.read()).decode("utf-8")
-            return f"data:image/png;base64,{data}"
-    except Exception as e:
-        print(f"🚨画像が見つかりません: {path}")
-        return ""
+            
+    # 見つからなかった場合のSOS
+    print(f"🚨画像が見つかりません: 探した場所={target_path}")
+    return ""
 
 def render_image_html(img_src):
     return f"""
