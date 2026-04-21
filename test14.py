@@ -70,29 +70,49 @@ div[data-testid="stImage"] {
     font-weight: bold; line-height: 1.2; word-break: break-word; 
 }
 
-/* ========== タブ3: デッキ作成のスマホレイアウト (768px以下) ========== */
-.responsive-gallery { 
-    display: grid; 
-    grid-template-columns: repeat(4, 1fr) !important; /* スマホでは絶対に4列 */
-    gap: 8px; 
-    margin-bottom: 20px; 
+/* ========== タブ3: デッキ作成用のStreamlit列レスポンシブ化 ========== */
+/* 基本は強制横並び・折り返し */
+div[data-testid="columns"]:has(.card-img-wrapper) {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px 0 !important;
 }
+
+/* スマホ用（4列）: 1列あたり約24%の幅 */
+div[data-testid="column"]:has(.card-img-wrapper) {
+    width: 24% !important;
+    flex: 0 0 24% !important;
+    min-width: 24% !important;
+    padding: 0 4px !important;
+}
+
+/* PC用（8列）: 768px以上なら1列あたり約12%の幅 */
 @media (min-width: 768px) {
-    .responsive-gallery {
-        grid-template-columns: repeat(8, 1fr) !important; /* PCでは8列 */
+    div[data-testid="column"]:has(.card-img-wrapper) {
+        width: 12% !important;
+        flex: 0 0 12% !important;
+        min-width: 12% !important;
     }
 }
-.gallery-item { display: flex; flex-direction: column; align-items: center; }
-.gallery-item img { 
-    width: 100%; 
-    aspect-ratio: 140 / 240; 
-    object-fit: cover; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+
+/* ➖➕ボタンの横並び調整 */
+div[data-testid="column"]:has(.card-img-wrapper) button {
+    padding: 2px !important;
+    font-size: 12px !important;
+    min-height: 32px !important;
+    width: 100% !important;
+    margin-top: 2px !important;
 }
-.gallery-item-title { 
-    text-align: center; font-size: 0.75em; margin-top: 5px; 
-    font-weight: bold; line-height: 1.2; word-break: break-word; 
+div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="columns"] {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 2px !important;
+}
+div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="columns"] > div[data-testid="column"] {
+    width: 48% !important;
+    flex: 0 0 48% !important;
+    min-width: 48% !important;
+    padding: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -632,61 +652,115 @@ with tab_database:
                         render_image_gallery([{"name": r["カード名"], "path": r["画像パス"]} for _, r in sub_df.iterrows()])
 
 # ==========================================
-# タブ3：デッキ作成
+# タブ3：デッキ作成（UIカスタマイズ版）
 # ==========================================
 with tab_build:
-    st.title("🗃️ 完全版カードデータベース")
-    if len(st.session_state.cards_db) > 0:
-        display_data = []
-        for card in st.session_state.cards_db:
-            name = card["name"]
-            main = st.session_state.custom_main_genres.get(name, card["main_genre"])
-            if main == "天賦カード": main = "装備カード"
-            sub = st.session_state.custom_subgroups.get(name, card["default_sub"])
-            tags = ", ".join(st.session_state.custom_tags.get(name, []))
-            display_data.append({"画像パス": card["path_or_url"], "カード名": name, "大分類": main, "小分類": sub, "タグ": tags})
+    st.title("🛠️ オリジナルデッキ構築")
 
-        df = pd.DataFrame(display_data)
+    # --- ステータスバー（現在の枚数確認） ---
+    char_count = len(st.session_state.deck_chars)
+    action_count = len(st.session_state.deck_actions)
+    
+    col_stat1, col_stat2, col_stat3 = st.columns([1, 1, 1])
+    with col_stat1:
+        st.metric("👤 キャラクター", f"{char_count} / 3", delta=char_count-3 if char_count > 3 else None, delta_color="inverse")
+    with col_stat2:
+        st.metric("🃏 アクション", f"{action_count} / 30", delta=action_count-30 if action_count > 30 else None, delta_color="inverse")
+    with col_stat3:
+        if st.button("🗑️ デッキを全クリア", use_container_width=True):
+            clear_deck()
+            st.rerun()
 
-        # --- 検索・フィルターUI ---
-        st.markdown("#### 🔍 絞り込み検索")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1: search_q = st.text_input("名前で検索", "")
-        if search_q: df = df[df["カード名"].str.contains(search_q)]
-        
-        with col2: genre_filter = st.multiselect("大分類", options=df["大分類"].unique())
-        if genre_filter: df = df[df["大分類"].isin(genre_filter)]
-        
-        with col3: sub_filter = st.multiselect("小分類", options=df["小分類"].unique())
-        if sub_filter: df = df[df["小分類"].isin(sub_filter)]
-        
-        with col4:
-            all_tags = set()
-            for t_str in df["タグ"]:
-                if t_str:
-                    for t in t_str.split(", "): 
-                        if t: all_tags.add(t)
-            tag_filter = st.multiselect("タグ", options=get_sorted_tags(all_tags))
-            
-        if tag_filter:
-            for t in tag_filter: df = df[df["タグ"].str.contains(t, na=False)]
+    st.markdown("---")
 
-        st.markdown("---")
-        view_mode = st.radio("表示形式を選択", ["🖼️ 画像ギャラリーで見る", "📋 表で見る"], horizontal=True)
-        st.markdown("---")
+    # --- 🔵 現在のデッキ編成エリア ---
+    st.subheader("📋 現在の編成")
+    
+    # キャラクター表示
+    if st.session_state.deck_chars:
+        st.markdown("**【キャラクター】**")
+        cols_c = st.columns(8) # PCで8列、スマホで自動調整
+        for idx, name in enumerate(st.session_state.deck_chars):
+            card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
+            with cols_c[idx % 8]:
+                if card_info:
+                    st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-label'>{name}</div>", unsafe_allow_html=True)
+                    st.button("➖", key=f"del_char_{idx}_{name}", on_click=remove_from_deck, args=(name, True), use_container_width=True)
+    
+    # アクションカード表示（重複をカウントして表示）
+    if st.session_state.deck_actions:
+        st.markdown("**【アクションカード】**")
+        from collections import Counter
+        counts = Counter(st.session_state.deck_actions)
+        action_items = list(counts.items())
+        
+        for i in range(0, len(action_items), 8):
+            cols_a = st.columns(8)
+            for j, (name, count) in enumerate(action_items[i:i+8]):
+                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
+                with cols_a[j]:
+                    if card_info:
+                        st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
+                        st.markdown(f"<div class='card-label'>{name}<br><b>×{count}</b></div>", unsafe_allow_html=True)
+                        st.button("➖", key=f"del_act_{i}_{j}_{name}", on_click=remove_from_deck, args=(name, False), use_container_width=True)
 
-        if view_mode == "📋 表で見る":
-            st.dataframe(df.drop(columns=["画像パス"]), use_container_width=True, height=600)
-        else:
-            for main_genre in df["大分類"].unique():
-                group_df = df[df["大分類"] == main_genre]
-                if not group_df.empty:
-                    st.subheader(f"■ {main_genre}")
-                    for sub_g in group_df["小分類"].unique():
-                        sub_df = group_df[group_df["小分類"] == sub_g]
-                        st.markdown(f"**📂 {sub_g}**")
-                        render_image_gallery([{"name": r["カード名"], "path": r["画像パス"]} for _, r in sub_df.iterrows()])
+    if not st.session_state.deck_chars and not st.session_state.deck_actions:
+        st.info("下のデータベースからカードの「➕」ボタンを押して追加してください。")
+
+    # --- 📋 レシピ出力エリア ---
+    if char_count > 0 or action_count > 0:
+        with st.expander("📝 デッキレシピをテキストで出力"):
+            all_counts = Counter(st.session_state.deck_chars + st.session_state.deck_actions)
+            recipe_text = generate_deck_recipe_text(all_counts)
+            st.code(recipe_text, language="text")
+
+    st.markdown("---")
+
+    # --- 🔍 カード検索・追加エリア ---
+    st.subheader("🔎 カードを探して追加")
+    
+    # 既存の検索・フィルターロジックを利用
+    col_s1, col_s2 = st.columns([2, 1])
+    with col_s1:
+        build_search = st.text_input("カード名で検索", key="build_search")
+    with col_s2:
+        build_genre = st.selectbox("大分類", ["すべて", "キャラカード", "装備カード", "支援カード", "イベントカード"], key="build_genre")
+
+    # フィルタリング
+    f_db = st.session_state.cards_db
+    if build_search:
+        f_db = [c for c in f_db if build_search in c["name"]]
+    if build_genre != "すべて":
+        f_db = [c for c in f_db if st.session_state.custom_main_genres.get(c["name"], c["main_genre"]) == (build_genre if build_genre != "装備カード" else "装備カード") or (build_genre == "装備カード" and st.session_state.custom_main_genres.get(c["name"], c["main_genre"]) == "天賦カード")]
+
+    # ギャラリー表示 + 追加ボタン
+    for i in range(0, len(f_db), 8):
+        cols = st.columns(8)
+        for j, card in enumerate(f_db[i:i+8]):
+            with cols[j]:
+                name = card["name"]
+                main_g = st.session_state.custom_main_genres.get(name, card["main_genre"])
+                st.markdown(render_image_html(get_image_base64(card["path_or_url"], name)), unsafe_allow_html=True)
+                st.markdown(f"<div class='card-label'>{name}</div>", unsafe_allow_html=True)
+                
+                # 追加可能かどうかの判定ロジック
+                can_add = False
+                if main_g == "キャラカード":
+                    if len(st.session_state.deck_chars) < 3 and name not in st.session_state.deck_chars:
+                        can_add = True
+                else:
+                    if len(st.session_state.deck_actions) < 30:
+                        current_count = st.session_state.deck_actions.count(name)
+                        if is_arcane_card(name):
+                            if current_count < 1: can_add = True
+                        else:
+                            if current_count < 2: can_add = True
+                
+                if can_add:
+                    st.button("➕", key=f"add_btn_{i}_{j}_{name}", on_click=add_to_deck, args=(name, main_g), use_container_width=True)
+                else:
+                    st.button("上限", key=f"max_btn_{i}_{j}_{name}", disabled=True, use_container_width=True)
 
                 
 # ==========================================
