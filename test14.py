@@ -713,73 +713,72 @@ with tab_build:
     # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
-    /* =========================================
-       1. 追従バー（PC/スマホ共通）
-       ========================================= */
+    /* --- 1. 追従バー（PC/スマホ共通） --- */
     .floating-deck-status {{
         position: fixed;
-        bottom: 30px; /* 下から少し浮かせ、Manage app等との重なりを防ぐ */
+        bottom: 40px; /* PCでのManage app回避のため少し上げる */
         right: 30px;
-        background: rgba(15, 17, 26, 0.9);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        z-index: 10000; /* 十分に高い数値 */
+        background: rgba(20, 25, 40, 0.95);
+        color: #ffffff;
+        padding: 8px 16px;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        z-index: 1000000; /* 最前面 */
         font-size: 14px;
-        border: 1px solid #444;
+        font-weight: bold;
+        border: 1px solid #4ade80; /* 少し緑の縁取り */
         backdrop-filter: blur(8px);
-        pointer-events: none; /* バー自体がクリックを邪魔しないように設定 */
+        pointer-events: none; /* 下のボタンをクリックできるように透過 */
     }}
 
-    /* =========================================
-       2. スマホ専用設定 (幅768px以下)
-       ========================================= */
+    /* --- 2. スマホ版(768px以下)の強制設定 --- */
     @media (max-width: 768px) {{
-        
-        /* 📱 追従バー：スマホでは中央上部に配置（操作の邪魔にならない位置） */
+        /* 📱 追従バー：スマホでは邪魔にならないよう「画面最上部」へ */
         .floating-deck-status {{
+            top: 55px !important; 
             bottom: auto !important;
-            top: 60px !important; /* 画面の一番上、ヘッダーの下あたり */
             left: 50% !important;
             right: auto !important;
             transform: translateX(-50%) !important;
-            width: 90% !important;
-            max-width: 350px !important;
+            width: 85% !important;
+            max-width: 400px !important;
+            text-align: center !important;
             display: flex !important;
-            justify-content: space-around !important;
-            padding: 8px !important;
-            font-size: 13px !important;
+            justify-content: center !important;
+            gap: 15px !important;
         }}
 
-        /* 📱 画像の強制横3列：最優先で上書き */
-        /* Streamlitの全カラムコンテナを対象 */
-        [data-testid="stHorizontalBlock"] {{
+        /* 📱 【最重要】画像を縦並びにするStreamlitの仕様を破壊する */
+        /* カラムの親要素を横並びに強制 */
+        div[data-testid="stHorizontalBlock"] {{
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: wrap !important;
-            gap: 5px !important;
+            align-items: flex-start !important;
+            width: 100% !important;
         }}
 
-        /* カラム1つずつの幅を31%程度に固定 */
-        [data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-            width: calc(33% - 5px) !important;
-            min-width: calc(33% - 5px) !important;
-            flex: 0 0 calc(33% - 5px) !important;
-            margin-bottom: 5px !important;
+        /* 各カラム(カード1枚分)を幅33%に固定 */
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
+            width: 32% !important; /* 余裕を持って32% */
+            flex: 0 0 32% !important;
+            min-width: 32% !important;
+            margin: 0 !important;
+            padding: 0 2px !important; /* カード間の隙間 */
         }}
 
-        /* 画像サイズを枠いっぱいにフィットさせる */
-        [data-testid="stHorizontalBlock"] img {{
+        /* 画像がはみ出さないように調整 */
+        div[data-testid="stHorizontalBlock"] img {{
             width: 100% !important;
             height: auto !important;
-            object-fit: contain !important;
+            border-radius: 5px !important;
         }}
 
-        /* ボタンのテキストを小さくしてはみ出し防止 */
-        [data-testid="stHorizontalBlock"] button {{
+        /* ボタンの文字を小さくして1行に収める */
+        div[data-testid="stHorizontalBlock"] button {{
+            width: 100% !important;
+            padding: 0 !important;
             font-size: 10px !important;
-            padding: 0px !important;
             min-height: 25px !important;
         }}
     }}
