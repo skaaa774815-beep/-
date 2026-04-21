@@ -657,35 +657,92 @@ with tab_database:
 # ==========================================
 with tab_build:
     from collections import Counter
+    import pandas as pd
+
+    # --- 0. CSS設定：枚数カウントを画面上部に固定 ---
+    st.markdown("""
+    <style>
+    /* ステータスバーを固定する設定 */
+    [data-testid="stMetricContainer"] {
+        background-color: rgba(28, 31, 46, 0.9); /* 背景色(少し透過) */
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #4a4a4a;
+    }
+    /* スクロール時に上部に張り付くコンテナ */
+    .sticky-header {
+        position: sticky;
+        top: 2.8rem;
+        z-index: 100;
+        background-color: #0e1117; /* アプリの背景色に合わせて調整 */
+        padding: 10px 0;
+        border-bottom: 2px solid #333;
+        margin-bottom: 20px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.title("🛠️ オリジナルデッキ構築")
 
-    # --- 0. 並び順の定義（画像に基づき固定） ---
-    MAIN_ORDER = ["キャラカード", "アクションカード"]
-    SUB_ORDER = [
-        "プレイアブルキャラ", "その他", "天賦", "武器", "聖遺物", 
-        "特技", "元素共鳴", "基本（未分類）", "国家共鳴", "料理", 
-        "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"
-    ]
-
-    # 並び替え用のヘルパー関数
-    def get_sort_key(item, order_list):
-        try:
-            return order_list.index(item)
-        except ValueError:
-            return 999
-
-    # --- 1. ステータスバー（前回同様） ---
+    # --- 1. 固定ステータスバー ---
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
-    col_stat1, col_stat2, col_stat3 = st.columns([1, 1, 1])
-    with col_stat1: st.metric("👤 キャラクター", f"{char_count} / 3")
-    with col_stat2: st.metric("🃏 アクション", f"{action_count} / 30")
-    with col_stat3:
-        if st.button("🗑️ デッキを全クリア", use_container_width=True):
-            st.session_state.deck_chars = []
-            st.session_state.deck_actions = []
-            st.rerun()
+    # HTMLとStreamlitコンポーネントを組み合わせて固定ヘッダーを作成
+    header_placeholder = st.container()
+    with header_placeholder:
+        st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
+        col_s1, col_s2, col_s3 = st.columns([1, 1, 1])
+        with col_s1: st.metric("👤 キャラ", f"{char_count} / 3")
+        with col_s2: st.metric("🃏 アクション", f"{action_count} / 30")
+        with col_s3:
+            if st.button("🗑️ 全クリア", use_container_width=True):
+                st.session_state.deck_chars = []
+                st.session_state.deck_actions = []
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- 2. 📝 デッキレシピのテキスト出力（追加機能） ---
+    with st.expander("📝 デッキレシピをテキストで出力"):
+        if char_count == 0 and action_count == 0:
+            st.warning("カードが選択されていません。")
+        else:
+            # 出力用テキストの構築
+            recipe_text = "【デッキレシピ】\n\n"
+            
+            # キャラクター
+            recipe_text += "■キャラクターカード\n"
+            for c in st.session_state.deck_chars:
+                recipe_text += f"・{c}\n"
+            
+            # アクションカード（ジャンル別）
+            recipe_text += "\n■アクションカード\n"
+            
+            # ジャンル分けの準備
+            actions_with_info = []
+            for name in st.session_state.deck_actions:
+                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
+                sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
+                # 天賦カードの移動ルール適用
+                main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
+                if main == "天賦カード": sub = "天賦"
+                actions_with_info.append({"name": name, "sub": sub})
+            
+            df_actions = pd.DataFrame(actions_with_info)
+            if not df_actions.empty:
+                counts = Counter(st.session_state.deck_actions)
+                # 定義したSUB_ORDER順に並べて出力
+                SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
+                
+                present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
+                for sub_val in present_subs:
+                    recipe_text += f"（{sub_val}）\n"
+                    sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
+                    for n in sub_names:
+                        recipe_text += f"・{n} x{counts[n]}\n"
+            
+            st.text_area("以下のテキストをコピーしてください", value=recipe_text, height=300)
+            st.caption("※SNSやメモ帳にそのまま貼り付けて使用できます。")
 
     st.markdown("---")
 
