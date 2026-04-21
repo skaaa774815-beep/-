@@ -717,30 +717,27 @@ with tab_build:
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
-    
-    
-    # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
+    # 🌟 画面に常に追従するフローティングバー（レイアウト崩れ修正版）
     st.markdown(f"""
     <style>
     .floating-deck-status {{
         position: fixed;
-        bottom: 85px; /* 🚀 下から少し浮かせてブラウザのツールバーとの重なりを防止 */
+        bottom: 85px;
         right: 20px;
         background: rgba(15, 17, 26, 0.95);
         color: white;
         padding: 8px 16px;
         border-radius: 30px;
-        z-index: 100000; /* 🚀 z-indexを最大級に設定 */
+        z-index: 100000;
         font-size: 14px;
         border: 2px solid #4ade80;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* 影をつけて浮き立たせる */
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         pointer-events: none;
         white-space: nowrap !important;
     }}
 
-    /* 2. スマホ版(768px以下)の設定 */
+    /* スマホ版(768px以下)の設定 */
     @media (max-width: 768px) {{
-        /* バーを上部に移動 */
         .floating-deck-status {{
             top: 55px !important;
             bottom: auto !important;
@@ -748,41 +745,15 @@ with tab_build:
             right: auto !important;
             transform: translateX(-50%) !important;
             max-width: 95% !important;
+            font-size: 13px !important;
         }}
-
-        /* 🚀 絞り込みバー問題の解消 */
-        /* 「画像(img)を含んでいる列」だけを強制4列にする */
-        div[data-testid="stHorizontalBlock"]:has(img) {{
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 6px !important;
-            width: 100% !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(img) > div[data-testid="column"] {{
-            width: 100% !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(img) img {{
-            width: 100% !important;
-            height: auto !important;
-            border-radius: 5px !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(img) button {{
-            width: 100% !important;
-            font-size: 11px !important;
-            padding: 2px !important;
-            min-height: 25px !important;
-        }}
+        /* ※レイアウトを破壊していた強制グリッドのCSSを削除し、安全にしました */
     }}
     </style>
     
     <div class="floating-deck-status">
         <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span>/3</span>
-        <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
+        <span style="margin-left:10px;">🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -791,13 +762,36 @@ with tab_build:
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # (recipe_textの構築ロジックは変更なしのため省略 ... 既存のロジックをそのままお使いください)
-            # --- 構築された recipe_text を使います ---
-
-            # 🚀 エラー回避策：HTMLとJavaScriptを使用したコピーボタン
-            import urllib.parse
+            # 🚀 誤って消えていた recipe_text の作成ロジックを完全復元
+            recipe_text = "【デッキレシピ】\n\n"
             
-            # テキストをJavaScriptで扱えるようにエスケープ
+            # キャラクター
+            recipe_text += "■キャラクターカード\n"
+            for c in st.session_state.deck_chars:
+                recipe_text += f"・{c}\n"
+            
+            # アクションカード
+            recipe_text += "\n■アクションカード\n"
+            actions_with_info = []
+            for name in st.session_state.deck_actions:
+                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
+                sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
+                main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
+                if main == "天賦カード": sub = "天賦"
+                actions_with_info.append({"name": name, "sub": sub})
+            
+            df_actions = pd.DataFrame(actions_with_info)
+            if not df_actions.empty:
+                counts = Counter(st.session_state.deck_actions)
+                SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
+                present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
+                for sub_val in present_subs:
+                    recipe_text += f"（{sub_val}）\n"
+                    sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
+                    for n in sub_names:
+                        recipe_text += f"・{n} x{counts[n]}\n"
+
+            # 🚀 HTMLとJavaScriptを使用した確実なコピーボタン
             escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
             
             copy_button_html = f"""
