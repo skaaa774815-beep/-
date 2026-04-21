@@ -731,45 +731,46 @@ with tab_build:
         pointer-events: none; /* 下のボタンをクリックできるように透過 */
     }}
 
-    /* 2. スマホ版(768px以下)の画像・ボタン強制縮小 */
+    /* 2. スマホ版(768px以下)の強制Grid設定 */
     @media (max-width: 768px) {{
-        /* カラムの並びを横に固定 */
+        /* バーを上部に移動 */
+        .floating-deck-status {{
+            top: 55px !important;
+            bottom: auto !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+        }}
+
+        /* 🚀 変更点：Flexboxを捨てて「Grid」で画面を3等分のマス目にする */
         div[data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: wrap !important;
-            justify-content: flex-start !important;
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important; /* 「1対1対1の3列にしろ」という絶対命令 */
+            gap: 8px !important; /* カードとカードの隙間 */
+            width: 100% !important;
         }}
 
-        /* 枠(カラム)の幅を3枚並び用に固定 */
+        /* あの憎き「100%幅のグレーの箱」を、Gridの1マスに押し込める */
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-            width: 31% !important;
-            flex: 0 0 31% !important;
-            min-width: 31% !important;
-            padding: 2px !important;
+            width: 100% !important; /* マス目の中で100%（実質画面の約33%）になる */
+            min-width: 0 !important; /* はみ出し防止 */
+            margin: 0 !important;
         }}
 
-        /* 📸 画像そのものの最大サイズを強制指定 */
+        /* 画像とボタンをそのマス目いっぱいに広げる */
         div[data-testid="stHorizontalBlock"] img {{
             width: 100% !important;
-            max-width: 110px !important; /* ←ここを100px〜120pxにすると小さくなります */
+            max-width: 100% !important; /* 前回の強制縮小を解除（マス目が小さいので自動で小さくなる） */
             height: auto !important;
-            margin: 0 auto !important;
-            display: block !important;
+            border-radius: 5px !important;
         }}
 
-        /* 🔘 ボタンも画像幅に合わせて小さく */
         div[data-testid="stHorizontalBlock"] button {{
             width: 100% !important;
-            max-width: 110px !important; 
-            font-size: 10px !important;
-            padding: 0 !important;
-            min-height: 24px !important;
-        }}
-        
-        /* 邪魔な余白をカット */
-        div[data-testid="stVerticalBlock"] {{
-            gap: 0.5rem !important;
+            max-width: 100% !important;
+            font-size: 11px !important;
+            padding: 2px !important;
+            min-height: 25px !important;
         }}
     }}
     </style>
