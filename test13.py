@@ -35,78 +35,79 @@ if "cloudinary" in st.secrets:
 st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wide", initial_sidebar_state="expanded")
 
 # --- スマホ・PC両対応の列制御CSS（スマート4列バージョン） ---
-
 st.markdown("""
 <style>
-/* --- 共通：画像の外観 --- */
-div[data-testid="stImage"] img {
-    border-radius: 4px !important;
-    width: 100% !important;
-    height: auto !important;
-    object-fit: contain !important;
+/* ========== 全体設定 ========== */
+div[data-testid="stImage"] {
+    margin: 0 auto !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    background-color: transparent !important;
 }
 
-/* --- スマホ専用：デッキ作成タブを強制4列にする設定 --- */
-@media (max-width: 640px) {
-    /* 1. カラムの親要素：横並びを強制し、勝手に折り返さないようにする */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
+/* ========== タブ2: データベースの画像ギャラリー ========== */
+.responsive-gallery { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr) !important; /* スマホでは絶対に4列 */
+    gap: 8px; 
+    margin-bottom: 20px; 
+}
+@media (min-width: 768px) {
+    .responsive-gallery {
+        grid-template-columns: repeat(8, 1fr) !important; /* PCでは8列 */
+    }
+}
+.gallery-item { display: flex; flex-direction: column; align-items: center; }
+.gallery-item img { 
+    width: 100%; 
+    aspect-ratio: 140 / 240; 
+    object-fit: cover; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+}
+.gallery-item-title { 
+    text-align: center; font-size: 0.75em; margin-top: 5px; 
+    font-weight: bold; line-height: 1.2; word-break: break-word; 
+}
+
+/* ========== タブ3: デッキ作成のスマホレイアウト (768px以下) ========== */
+@media (max-width: 768px) {
+    /* 画像を含み、かつ4列以上あるブロック（＝デッキのカード一覧）だけを狙い撃ち */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) {
         flex-direction: row !important;
         flex-wrap: wrap !important;
-        gap: 2px !important; /* カード間の隙間を最小限に */
     }
-
-    /* 2. 各カラム：画面幅の約24%に固定（4枚並び） */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    /* カード1枚分の枠を4等分（24%）に固定 */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) > div[data-testid="column"] {
         width: 24% !important;
         flex: 0 0 24% !important;
-        min-width: 24% !important; /* 1列に拡大されるのを阻止 */
-        padding: 0 !important;
-        margin-bottom: 8px !important;
+        min-width: 24% !important;
+        padding: 0 3px !important;
+        margin-bottom: 15px !important;
     }
 
-    /* 3. テキスト：4列でも溢れないよう調整（10px） */
-    div[data-testid="stMarkdownContainer"] p, 
-    div[data-testid="stMarkdownContainer"] b,
-    div[data-testid="stMarkdownContainer"] span {
-        font-size: 10px !important;
-        line-height: 1.1 !important;
-        text-align: center !important;
-        white-space: nowrap !important; /* 文字が改行されすぎてボタンがズレるのを防ぐ */
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+    /* アクションカードの「➖」「➕」が縦に並ばないよう、内部の列を横並びに固定 */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
     }
-
-    /* 4. ボタン：4列の中にきっちり収め、高さを統一してズレを防止 */
-    div[data-testid="stButton"] button {
-        width: 100% !important;
-        min-width: 0 !important;
-        padding: 0 !important;
-        font-size: 10px !important;
-        height: 28px !important;
-        min-height: 28px !important;
-        margin: 0 !important;
-    }
-
-    /* 5. ➕➖ボタン用の横並びブロックも調整 */
-    div[data-testid="column"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: 48% !important;
         flex: 0 0 48% !important;
         min-width: 48% !important;
+        padding: 0 !important;
+    }
+
+    /* ボタン（追加・外す・➕➖）のサイズを縮小してズレを防ぐ */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) button {
+        padding: 2px !important;
+        font-size: 10px !important;
+        min-height: 28px !important;
+        width: 100% !important;
+        margin-top: 2px !important;
     }
 }
-
-/* --- データベースタブ：ギャラリー形式（4列） --- */
-.responsive-gallery { 
-    display: grid; 
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 4px; 
-}
-@media (min-width: 768px) {
-    .responsive-gallery { grid-template-columns: repeat(8, 1fr) !important; }
-}
-.gallery-item img { width: 100%; border-radius: 4px; }
-.gallery-item-title { font-size: 9px; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
