@@ -717,27 +717,33 @@ with tab_build:
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
-    # 🌟 画面に常に追従するフローティングバー（レイアウト崩れ修正版）
+    
+    
+    # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
+    /* 1. 追従バーの設定 */
     .floating-deck-status {{
         position: fixed;
-        bottom: 85px;
+        bottom: 20px;
         right: 20px;
         background: rgba(15, 17, 26, 0.95);
         color: white;
-        padding: 8px 16px;
+        padding: 6px 12px; /* 少しスリムに */
         border-radius: 30px;
-        z-index: 100000;
-        font-size: 14px;
-        border: 2px solid #4ade80;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        z-index: 99999;
+        font-size: 13px;
+        border: 1px solid #4ade80;
+        display: flex;
+        gap: 10px;
         pointer-events: none;
-        white-space: nowrap !important;
+        white-space: nowrap !important; /* 🚀 絶対に改行させない */
+        width: auto !important; /* 文字数に合わせて幅を自動調整 */
     }}
 
-    /* スマホ版(768px以下)の設定 */
+    /* 2. スマホ版(768px以下)の設定 */
     @media (max-width: 768px) {{
+        /* バーを上部に移動 */
         .floating-deck-status {{
             top: 55px !important;
             bottom: auto !important;
@@ -745,15 +751,41 @@ with tab_build:
             right: auto !important;
             transform: translateX(-50%) !important;
             max-width: 95% !important;
-            font-size: 13px !important;
         }}
-        /* ※レイアウトを破壊していた強制グリッドのCSSを削除し、安全にしました */
+
+        /* 🚀 絞り込みバー問題の解消 */
+        /* 「画像(img)を含んでいる列」だけを強制3列にする */
+        div[data-testid="stHorizontalBlock"]:has(img) {{
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 6px !important;
+            width: 100% !important;
+        }}
+
+        div[data-testid="stHorizontalBlock"]:has(img) > div[data-testid="column"] {{
+            width: 100% !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+        }}
+
+        div[data-testid="stHorizontalBlock"]:has(img) img {{
+            width: 100% !important;
+            height: auto !important;
+            border-radius: 5px !important;
+        }}
+
+        div[data-testid="stHorizontalBlock"]:has(img) button {{
+            width: 100% !important;
+            font-size: 11px !important;
+            padding: 2px !important;
+            min-height: 25px !important;
+        }}
     }}
     </style>
     
     <div class="floating-deck-status">
         <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span>/3</span>
-        <span style="margin-left:10px;">🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
+        <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -762,7 +794,7 @@ with tab_build:
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # 🚀 誤って消えていた recipe_text の作成ロジックを完全復元
+            # 出力用テキストの構築
             recipe_text = "【デッキレシピ】\n\n"
             
             # キャラクター
@@ -770,12 +802,15 @@ with tab_build:
             for c in st.session_state.deck_chars:
                 recipe_text += f"・{c}\n"
             
-            # アクションカード
+            # アクションカード（ジャンル別）
             recipe_text += "\n■アクションカード\n"
+            
+            # ジャンル分けの準備
             actions_with_info = []
             for name in st.session_state.deck_actions:
                 card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
                 sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
+                # 天賦カードの移動ルール適用
                 main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
                 if main == "天賦カード": sub = "天賦"
                 actions_with_info.append({"name": name, "sub": sub})
@@ -783,46 +818,18 @@ with tab_build:
             df_actions = pd.DataFrame(actions_with_info)
             if not df_actions.empty:
                 counts = Counter(st.session_state.deck_actions)
+                # 定義したSUB_ORDER順に並べて出力
                 SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
+                
                 present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
                 for sub_val in present_subs:
                     recipe_text += f"（{sub_val}）\n"
                     sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
                     for n in sub_names:
                         recipe_text += f"・{n} x{counts[n]}\n"
-
-            # 🚀 HTMLとJavaScriptを使用した確実なコピーボタン
-            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
             
-            copy_button_html = f"""
-                <button id="copy-btn" style="
-                    width: 100%;
-                    background-color: #ff4b4b;
-                    color: white;
-                    border: none;
-                    padding: 10px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                ">📋 レシピをコピーする</button>
-
-                <script>
-                document.getElementById('copy-btn').onclick = function() {{
-                    const text = `{escaped_text}`;
-                    navigator.clipboard.writeText(text).then(function() {{
-                        alert('クリップボードにコピーしました！');
-                    }}, function(err) {{
-                        console.error('コピーに失敗しました', err);
-                    }});
-                }};
-                </script>
-            """
-            st.components.v1.html(copy_button_html, height=60)
-
-            # 確認用のテキスト表示
-            st.text_area("レシピ内容", value=recipe_text, height=250)
-            st.caption("※コピーしたテキストをそのままGeminiなどのAIに貼り付けて相談できます。")
+            st.text_area("以下のテキストをコピーしてください", value=recipe_text, height=300)
+            st.caption("※SNSやメモ帳にそのまま貼り付けて使用できます。")
 
     st.markdown("---")
 
