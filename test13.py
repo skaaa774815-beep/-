@@ -37,75 +37,51 @@ st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wi
 # --- スマホ・PC両対応の列制御CSS（スマート4列バージョン） ---
 st.markdown("""
 <style>
-/* --- 共通：画像の外観 --- */
-div[data-testid="stImage"] img {
-    border-radius: 4px !important;
-    width: 100% !important;
-    height: auto !important;
-    object-fit: contain !important;
-}
-
-/* --- スマホ専用：デッキ作成タブを強制4列にする設定 --- */
+/* ========== 1. デッキ作成タブ（HTML画像）をスマホで4列に強制 ========== */
 @media (max-width: 640px) {
-    /* 1. カラムの親要素：横並びを強制し、勝手に折り返さないようにする */
+    /* カラムの親要素を横並び(Flex)に固定 */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
-        gap: 2px !important; /* カード間の隙間を最小限に */
+        gap: 4px !important;
     }
 
-    /* 2. 各カラム：画面幅の約24%に固定（4枚並び） */
+    /* 各カラムの幅を約24%に強制（4列） */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 24% !important;
-        flex: 0 0 24% !important;
-        min-width: 24% !important; /* 1列に拡大されるのを阻止 */
+        width: 23% !important; 
+        flex: 0 0 23% !important;
+        min-width: 23% !important;
         padding: 0 !important;
-        margin-bottom: 8px !important;
     }
 
-    /* 3. テキスト：4列でも溢れないよう調整（10px） */
-    div[data-testid="stMarkdownContainer"] p, 
-    div[data-testid="stMarkdownContainer"] b,
-    div[data-testid="stMarkdownContainer"] span {
-        font-size: 10px !important;
-        line-height: 1.1 !important;
-        text-align: center !important;
-        white-space: nowrap !important; /* 文字が改行されすぎてボタンがズレるのを防ぐ */
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+    /* 独自HTML(render_image_html)の画像サイズを枠に合わせる */
+    div[data-testid="stMarkdownContainer"] img {
+        width: 100% !important;
+        height: auto !important;
+        display: block;
     }
 
-    /* 4. ボタン：4列の中にきっちり収め、高さを統一してズレを防止 */
+    /* ボタンを4列の幅に収める */
     div[data-testid="stButton"] button {
         width: 100% !important;
-        min-width: 0 !important;
-        padding: 0 !important;
         font-size: 10px !important;
-        height: 28px !important;
+        padding: 0 !important;
         min-height: 28px !important;
-        margin: 0 !important;
-    }
-
-    /* 5. ➕➖ボタン用の横並びブロックも調整 */
-    div[data-testid="column"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 48% !important;
-        flex: 0 0 48% !important;
-        min-width: 48% !important;
     }
 }
 
-/* --- データベースタブ：ギャラリー形式（4列） --- */
-.responsive-gallery { 
-    display: grid; 
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 4px; 
+/* ========== 2. アップロードタブなどの「巨大化」を防止 ========== */
+/* st.image で表示される画像が、広い画面で100%にならないように制限 */
+div[data-testid="stImage"] {
+    max-width: 300px; /* アップロードプレビューなどはこのサイズ以下になる */
+    margin: 0 auto;
 }
-@media (min-width: 768px) {
-    .responsive-gallery { grid-template-columns: repeat(8, 1fr) !important; }
+
+/* ただし、カラム（横並び）の中にある st.image は枠いっぱいに広げる */
+div[data-testid="column"] div[data-testid="stImage"] {
+    max-width: 100% !important;
 }
-.gallery-item img { width: 100%; border-radius: 4px; }
-.gallery-item-title { font-size: 9px; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -746,11 +722,11 @@ with tab_build:
     else:
         st.write(f"{len(filtered_db)}枚のカードが見つかりました。")
         # --- ここを8から6に変更 ---
-        cols = st.columns(6) 
+        cols = st.columns(8) 
         for i, card in enumerate(filtered_db):
             main_g = st.session_state.custom_main_genres.get(card["name"], card["main_genre"])
             # --- ここも6に合わせる ---
-            with cols[i % 6]: 
+            with cols[i % 8]: 
                 st.markdown(render_image_html(get_image_base64(card["path_or_url"], card["name"])), unsafe_allow_html=True)
                 
                 can_add = False
