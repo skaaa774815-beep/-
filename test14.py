@@ -760,31 +760,31 @@ with tab_build:
 
         /* 🚀 絞り込みバー問題の解消 */
         /* 「画像(img)を含んでいる列」だけを強制3列にする */
-        div[data-testid="stHorizontalBlock"]:has(.card-label) {
+        div[data-testid="stHorizontalBlock"]:has(.card-label) {{
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
             gap: 6px !important;
             width: 100% !important;
-        }
+        }}
 
-        div[data-testid="stHorizontalBlock"]:has(.card-label) > div[data-testid="column"] {
+        div[data-testid="stHorizontalBlock"]:has(.card-label) > div[data-testid="column"] {{
             width: 100% !important;
             min-width: 0 !important;
             margin: 0 !important;
-        }
+        }}
 
-        div[data-testid="stHorizontalBlock"]:has(.card-label) img {
+        div[data-testid="stHorizontalBlock"]:has(.card-label) img {{
             width: 100% !important;
             height: auto !important;
             border-radius: 5px !important;
-        }
+        }}
 
-        div[data-testid="stHorizontalBlock"]:has(.card-label) button {
+        div[data-testid="stHorizontalBlock"]:has(.card-label) button {{
             width: 100% !important;
             font-size: 11px !important;
             padding: 2px !important;
             min-height: 25px !important;
-        }
+        }}
     }}
     </style>
     
