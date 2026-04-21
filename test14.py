@@ -794,23 +794,17 @@ with tab_build:
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # 出力用テキストの構築
+            # 出力用テキストの構築（ロジックは変更なし）
             recipe_text = "【デッキレシピ】\n\n"
-            
-            # キャラクター
             recipe_text += "■キャラクターカード\n"
             for c in st.session_state.deck_chars:
                 recipe_text += f"・{c}\n"
             
-            # アクションカード（ジャンル別）
             recipe_text += "\n■アクションカード\n"
-            
-            # ジャンル分けの準備
             actions_with_info = []
             for name in st.session_state.deck_actions:
                 card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
                 sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
-                # 天賦カードの移動ルール適用
                 main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
                 if main == "天賦カード": sub = "天賦"
                 actions_with_info.append({"name": name, "sub": sub})
@@ -818,18 +812,24 @@ with tab_build:
             df_actions = pd.DataFrame(actions_with_info)
             if not df_actions.empty:
                 counts = Counter(st.session_state.deck_actions)
-                # 定義したSUB_ORDER順に並べて出力
                 SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
-                
                 present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
                 for sub_val in present_subs:
                     recipe_text += f"（{sub_val}）\n"
                     sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
                     for n in sub_names:
                         recipe_text += f"・{n} x{counts[n]}\n"
-            
-            st.text_area("以下のテキストをコピーしてください", value=recipe_text, height=300)
-            st.caption("※SNSやメモ帳にそのまま貼り付けて使用できます。")
+
+            # --- ここから変更 ---
+            # 1. コピーボタンの設置
+            if st.button("📋 レシピをコピーする", type="primary", use_container_width=True):
+                st.copy_to_clipboard(recipe_text)
+                st.success("クリップボードにコピーしました！")
+
+            # 2. 確認用の表示（コピー失敗時や目視確認用）
+            st.text_area("レシピ内容", value=recipe_text, height=250, help="上のボタンで一括コピーできます")
+            st.caption("※コピーしたテキストをそのままGeminiなどのAIに貼り付けて相談できます。")
+            # --- ここまで変更 ---
 
     st.markdown("---")
 
