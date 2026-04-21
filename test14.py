@@ -653,21 +653,34 @@ with tab_database:
                         render_image_gallery([{"name": r["カード名"], "path": r["画像パス"]} for _, r in sub_df.iterrows()])
 
 # ==========================================
-# タブ3：デッキ作成（見出し整理・秘伝ルール適用版）
+# タブ3：デッキ作成（並び順固定・カテゴリ統合版）
 # ==========================================
 with tab_build:
     from collections import Counter
     st.title("🛠️ オリジナルデッキ構築")
 
-    # --- 1. ステータスバー ---
+    # --- 0. 並び順の定義（画像に基づき固定） ---
+    MAIN_ORDER = ["キャラカード", "アクションカード"]
+    SUB_ORDER = [
+        "プレイアブルキャラ", "その他", "天賦", "武器", "聖遺物", 
+        "特技", "元素共鳴", "基本（未分類）", "国家共鳴", "料理", 
+        "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"
+    ]
+
+    # 並び替え用のヘルパー関数
+    def get_sort_key(item, order_list):
+        try:
+            return order_list.index(item)
+        except ValueError:
+            return 999
+
+    # --- 1. ステータスバー（前回同様） ---
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
     col_stat1, col_stat2, col_stat3 = st.columns([1, 1, 1])
-    with col_stat1:
-        st.metric("👤 キャラクター", f"{char_count} / 3")
-    with col_stat2:
-        st.metric("🃏 アクション", f"{action_count} / 30")
+    with col_stat1: st.metric("👤 キャラクター", f"{char_count} / 3")
+    with col_stat2: st.metric("🃏 アクション", f"{action_count} / 30")
     with col_stat3:
         if st.button("🗑️ デッキを全クリア", use_container_width=True):
             st.session_state.deck_chars = []
@@ -676,10 +689,12 @@ with tab_build:
 
     st.markdown("---")
 
-    # --- 2. 📋 現在の編成エリア（＋/－ボタン付き） ---
+    # --- 2. 📋 現在の編成エリア ---
     st.subheader("📋 現在の編成")
+    # (キャラクター・アクションカードの表示ロジックは前回と同様のため省略可ですが、
+    #  秘伝制限などは維持したまま名前順にソートして表示します)
     
-    # キャラクター表示
+    # キャラ表示
     if st.session_state.deck_chars:
         st.markdown("**【キャラクター】**")
         cols_c = st.columns(8)
@@ -690,12 +705,11 @@ with tab_build:
                     st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
                     st.button("➖", key=f"del_char_{idx}", on_click=remove_from_deck, args=(name, True), use_container_width=True)
     
-    # アクションカード表示
+    # アクション表示
     if st.session_state.deck_actions:
         st.markdown("**【アクションカード】**")
         counts = Counter(st.session_state.deck_actions)
-        action_items = sorted(list(counts.items())) # 名前順に並べて表示を安定させる
-        
+        action_items = sorted(list(counts.items()))
         for i in range(0, len(action_items), 8):
             cols_a = st.columns(8)
             for j, (name, count) in enumerate(action_items[i:i+8]):
@@ -704,64 +718,58 @@ with tab_build:
                     if card_info:
                         st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align:center; font-size:0.8rem; font-weight:bold;'>x{count}</div>", unsafe_allow_html=True)
-                        
-                        btn_col1, btn_col2 = st.columns(2)
-                        with btn_col1:
-                            st.button("➖", key=f"minus_{name}", on_click=remove_from_deck, args=(name, False), use_container_width=True)
-                        with btn_col2:
-                            # --- 秘伝カード判定ロジック ---
-                            tags = st.session_state.custom_tags.get(name, [])
-                            is_arcane = "秘伝" in tags
-                            limit = 1 if is_arcane else 2 # 秘伝は1枚、通常は2枚
-                            
-                            is_disabled = count >= limit or len(st.session_state.deck_actions) >= 30
-                            st.button("➕", key=f"plus_{name}", on_click=add_to_deck, args=(name, "アクション"), disabled=is_disabled, use_container_width=True)
-
-    if not st.session_state.deck_chars and not st.session_state.deck_actions:
-        st.info("下の検索結果からカードを追加してください。")
+                        btn_c1, btn_c2 = st.columns(2)
+                        with btn_c1: st.button("➖", key=f"m_{name}", on_click=remove_from_deck, args=(name, False), use_container_width=True)
+                        with btn_c2:
+                            is_arcane = "秘伝" in st.session_state.custom_tags.get(name, [])
+                            st.button("➕", key=f"p_{name}", on_click=add_to_deck, args=(name, "アクション"), 
+                                      disabled=(count >= (1 if is_arcane else 2) or action_count >= 30), use_container_width=True)
 
     st.markdown("---")
 
-    # --- 3. 🔍 カードを探す（フィルタリング・並び替え） ---
+    # --- 3. 🔍 絞り込み検索（カテゴリ移動とソート適用） ---
     st.subheader("🔎 カードを探す")
     
-    # データの準備
-    df_build = pd.DataFrame([{
-        "path": c["path_or_url"], 
-        "name": c["name"], 
-        "main": st.session_state.custom_main_genres.get(c["name"], c["main_genre"]),
-        "sub": st.session_state.custom_subgroups.get(c["name"], c["default_sub"]),
-        "tags": st.session_state.custom_tags.get(c["name"], [])
-    } for c in st.session_state.cards_db])
+    # データの準備と「天賦カード」の移動処理
+    raw_data = []
+    for c in st.session_state.cards_db:
+        main = st.session_state.custom_main_genres.get(c["name"], c["main_genre"])
+        sub = st.session_state.custom_subgroups.get(c["name"], c["default_sub"])
+        
+        # 【重要】大分類が「天賦カード」なら「アクションカード」の「天賦」へ移動
+        if main == "天賦カード":
+            main = "アクションカード"
+            sub = "天賦"
+            
+        raw_data.append({
+            "path": c["path_or_url"], "name": c["name"], "main": main, "sub": sub,
+            "tags": st.session_state.custom_tags.get(c["name"], [])
+        })
+    df_build = pd.DataFrame(raw_data)
 
     col1, col2, col3, col4 = st.columns(4)
-    with col1: 
-        q_name = st.text_input("名前検索", key="b_q_name")
-    with col2: 
-        q_main_opt = sorted(df_build["main"].unique())
+    with col1: q_name = st.text_input("名前検索", key="b_q_name")
+    
+    with col2:
+        # 大分類を固定順で表示
+        q_main_opt = sorted(df_build["main"].unique(), key=lambda x: get_sort_key(x, MAIN_ORDER))
         q_main = st.multiselect("大分類", options=q_main_opt, key="b_q_main")
+        
     with col3:
-        # 大分類に連動した小分類のみを表示
-        relevant_df_for_sub = df_build[df_build["main"].isin(q_main)] if q_main else df_build
-        q_sub_opt = sorted(relevant_df_for_sub["sub"].unique())
+        # 小分類を画像 の順番で表示
+        rel_df = df_build[df_build["main"].isin(q_main)] if q_main else df_build
+        q_sub_opt = sorted(rel_df["sub"].unique(), key=lambda x: get_sort_key(x, SUB_ORDER))
         q_sub = st.multiselect("小分類", options=q_sub_opt, key="b_q_sub")
+        
     with col4:
-        # 大分類・小分類に連動したタグのみを表示
-        relevant_df_for_tag = relevant_df_for_sub
-        if q_sub: relevant_df_for_tag = relevant_df_for_tag[relevant_df_for_tag["sub"].isin(q_sub)]
-        
-        relevant_tags = set()
-        for t_list in relevant_df_for_tag["tags"]:
-            for t in t_list: relevant_tags.add(t)
-        
-        # タブ2と同じ並び順を適用（get_sorted_tags関数を使用）
-        try:
-            tag_options = get_sorted_tags(relevant_tags)
-        except:
-            tag_options = sorted(list(relevant_tags))
+        # タグの並び替え
+        rel_tag_df = rel_df[rel_df["sub"].isin(q_sub)] if q_sub else rel_df
+        relevant_tags = set(t for t_list in rel_tag_df["tags"] for t in t_list)
+        try: tag_options = get_sorted_tags(relevant_tags)
+        except: tag_options = sorted(list(relevant_tags))
         q_tag = st.multiselect("タグ", options=tag_options, key="b_q_tag")
 
-    # フィルタリング実行
+    # フィルタリング
     f_res = df_build
     if q_name: f_res = f_res[f_res["name"].str.contains(q_name)]
     if q_main: f_res = f_res[f_res["main"].isin(q_main)]
@@ -769,45 +777,42 @@ with tab_build:
     if q_tag:
         for t in q_tag: f_res = f_res[f_res["tags"].apply(lambda x: t in x)]
 
-    # --- 4. 🖼️ 見出し付き画像ギャラリー表示 ---
+    # --- 4. 🖼️ 見出し付き画像ギャラリー（並び順反映） ---
     if not f_res.empty:
-        # 大分類ごとにループ
-        for main_val in sorted(f_res["main"].unique()):
+        # 大分類のループ（固定順）
+        sorted_mains = sorted(f_res["main"].unique(), key=lambda x: get_sort_key(x, MAIN_ORDER))
+        for main_val in sorted_mains:
             st.subheader(f"■ {main_val}")
             main_df = f_res[f_res["main"] == main_val]
             
-            # 小分類ごとにループ
-            for sub_val in sorted(main_df["sub"].unique()):
+            # 小分類のループ（固定順）
+            sorted_subs = sorted(main_df["sub"].unique(), key=lambda x: get_sort_key(x, SUB_ORDER))
+            for sub_val in sorted_subs:
                 st.markdown(f"**📂 {sub_val}**")
                 sub_df = main_df[main_df["sub"] == sub_val]
                 
-                # 8列のグリッド表示
-                sub_data = sub_df.to_dict('records')
-                for i in range(0, len(sub_data), 8):
+                # 8列グリッド表示
+                sub_items = sub_df.to_dict('records')
+                for i in range(0, len(sub_items), 8):
                     cols = st.columns(8)
-                    for j, card in enumerate(sub_data[i:i+8]):
+                    for j, card in enumerate(sub_items[i:i+8]):
                         with cols[j]:
-                            name = card["name"]
-                            tags = card["tags"]
+                            name, tags = card["name"], card["tags"]
                             st.markdown(render_image_html(get_image_base64(card["path"], name)), unsafe_allow_html=True)
                             
-                            # 追加制限ロジック
                             is_arcane = "秘伝" in tags
                             limit = 1 if is_arcane else 2
-                            current_cnt = st.session_state.deck_actions.count(name) if "キャラ" not in card["main"] else st.session_state.deck_chars.count(name)
+                            cur_cnt = st.session_state.deck_actions.count(name) if "キャラ" not in card["main"] else st.session_state.deck_chars.count(name)
                             
                             can_add = False
                             if "キャラ" in card["main"]:
-                                if len(st.session_state.deck_chars) < 3 and current_cnt == 0:
-                                    can_add = True
+                                if len(st.session_state.deck_chars) < 3 and cur_cnt == 0: can_add = True
                             else:
-                                if len(st.session_state.deck_actions) < 30 and current_cnt < limit:
-                                    can_add = True
+                                if len(st.session_state.deck_actions) < 30 and cur_cnt < limit: can_add = True
                             
-                            if can_add:
-                                st.button("➕", key=f"add_l_{name}_{i}_{j}", on_click=add_to_deck, args=(name, card["main"]), use_container_width=True)
-                            else:
-                                st.button("×", key=f"full_l_{name}_{i}_{j}", disabled=True, use_container_width=True)
+                            st.button("➕" if can_add else "×", key=f"bl_{name}_{i}_{j}", 
+                                      on_click=add_to_deck if can_add else None, 
+                                      args=(name, card["main"]), disabled=not can_add, use_container_width=True)
     else:
         st.write("条件に一致するカードがありません。")
 
