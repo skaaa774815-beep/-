@@ -319,7 +319,7 @@ def build_database():
     # 3. フォルダ(card_images)からの直接取得
     if os.path.exists(cache_dir):
         for filename in os.listdir(cache_dir):
-            if filename.lower().endswith((".png", ".jpg", ".jpeg")) and "_thumb" not in filename:
+            if filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) and "_thumb" not in filename:
                 name = os.path.splitext(filename)[0]
                 local_path = os.path.join(cache_dir, filename)
                 existing_genre = best_cards[name]["main_genre"] if name in best_cards else "未分類カード"
@@ -403,14 +403,23 @@ def get_sort_key(item, order_list):
 def get_image_base64(path, name=None):
     if str(path).startswith("http"): return path
     
-    # 1. まず「カード名.png」等で card_images フォルダを探す
+    # 拡張子に合わせて base64 形式を作る内部関数
+    def _to_data_uri(file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == ".webp": mime = "image/webp"
+        elif ext in [".jpg", ".jpeg"]: mime = "image/jpeg"
+        else: mime = "image/png"
+        with open(file_path, "rb") as f:
+            return f"data:{mime};base64,{base64.b64encode(f.read()).decode('utf-8')}"
+    
+    # 1. まず「カード名.拡張子」で card_images フォルダを探す
     if name:
-        for ext in [".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"]:
+        # 探索リストに webp を追加
+        for ext in [".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG", ".webp", ".WEBP"]:
             target_path = os.path.join(cache_dir, f"{name}{ext}")
             if os.path.exists(target_path):
                 try:
-                    with open(target_path, "rb") as f:
-                        return f"data:image/png;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+                    return _to_data_uri(target_path)
                 except: pass
 
     # 2. 見つからなければ、HTMLに書いてあったファイル名（card_570.pngなど）で探す
@@ -418,8 +427,7 @@ def get_image_base64(path, name=None):
     fallback_path = os.path.join(cache_dir, filename)
     if os.path.exists(fallback_path):
         try:
-            with open(fallback_path, "rb") as f:
-                return f"data:image/png;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+            return _to_data_uri(fallback_path)
         except: pass
             
     return ""
@@ -534,7 +542,7 @@ tab_analyze, tab_database, tab_build, tab_update = st.tabs(["📷 画像解析",
 # ==========================================
 with tab_analyze:
     st.title("🃏 七聖召喚 デッキ画像解析 Webツール")
-    uploaded_file = st.file_uploader("デッキのスクリーンショットをアップロードしてください", type=["png", "jpg", "jpeg"])
+    uploaded_file = st.file_uploader("デッキのスクリーンショットをアップロードしてください", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded_file is not None:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
@@ -997,7 +1005,7 @@ with tab_update:
     st.title("🆙 カード判定・手動確認アップグレード")
     st.write("画像をアップロードすると、AIがどのカードか判定します。内容を確認して「更新」ボタンを押してください。")
 
-    uploaded_files = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="bulk_update")
+    uploaded_files = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True, key="bulk_update")
 
     if uploaded_files:
         if not db_hashes:
