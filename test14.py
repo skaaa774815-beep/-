@@ -534,6 +534,20 @@ with st.sidebar:
         """,
         unsafe_allow_html=True
     )
+    
+    # === サイドバーの最後に追加 ===
+    st.sidebar.markdown("---") # 区切り線
+    st.sidebar.markdown(
+        """
+        **📖 カード効果の詳細について** カードの詳しい効果やルールなどを知りたい場合は、以下の有志Wikiサイト様が便利です。  
+        
+        🔗 **[原神Wiki - 七聖召喚ページ](https://wikiwiki.jp/genshinwiki/%E4%B8%83%E8%81%96%E5%8F%AC%E5%96%9A)** <div style="font-size: 11px; color: #888; margin-top: 5px;">
+        ※当アプリとは無関係の外部サイト様へ遷移します。<br>
+        ※リンク先の内容について当アプリでは責任を負いかねますのでご了承ください。
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 tab_analyze, tab_database, tab_build, tab_update = st.tabs(["📷 画像解析", "🗃️ データベース", "🛠️ デッキ作成","🆙 画像更新"])
 
