@@ -369,6 +369,28 @@ def load_db_hashes(db):
             except: pass
     return db_hashes
 
+# ==========================================
+# 共通設定・ヘルパー関数（スクリプトの上部に配置）
+# ==========================================
+import pandas as pd
+from collections import Counter
+
+# --- 並び順の固定ルール ---
+MAIN_ORDER = ["キャラカード", "アクションカード"]
+SUB_ORDER = [
+    "プレイアブルキャラ", "その他", "天賦", "武器", "聖遺物", 
+    "特技", "元素共鳴", "基本（未分類）", "国家共鳴", "料理", 
+    "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"
+]
+
+# --- 並び替え用の共通関数 ---
+def get_sort_key(item, order_list):
+    try:
+        return order_list.index(item)
+    except ValueError:
+        return 999
+# ==========================================
+
 # --- 画像表示用（名前を優先してローカルを探す最強仕様） ---
 @st.cache_data
 def get_image_base64(path, name=None):
