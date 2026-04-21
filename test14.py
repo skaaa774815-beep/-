@@ -735,9 +735,11 @@ with tab_build:
     } for c in st.session_state.cards_db])
 
     col1, col2, col3, col4 = st.columns(4)
-    with col1: q_name = st.text_input("名前検索", key="b_q_name")
-    with col2: q_main_opt = sorted(df_build["main"].unique())
-               q_main = st.multiselect("大分類", options=q_main_opt, key="b_q_main")
+    with col1: 
+        q_name = st.text_input("名前検索", key="b_q_name")
+    with col2: 
+        q_main_opt = sorted(df_build["main"].unique())
+        q_main = st.multiselect("大分類", options=q_main_opt, key="b_q_main")
     with col3:
         # 大分類に連動した小分類のみを表示
         relevant_df_for_sub = df_build[df_build["main"].isin(q_main)] if q_main else df_build
