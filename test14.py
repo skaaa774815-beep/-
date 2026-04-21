@@ -719,26 +719,23 @@ with tab_build:
     
     
     
-    # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
+    # --- 🌟 フローティングバーのCSS修正（重なり防止） ---
     st.markdown(f"""
     <style>
-    /* 1. 追従バーの設定 */
     .floating-deck-status {{
         position: fixed;
-        bottom: 20px;
+        bottom: 85px; /* 🚀 下から少し浮かせてブラウザのツールバーとの重なりを防止 */
         right: 20px;
         background: rgba(15, 17, 26, 0.95);
         color: white;
-        padding: 6px 12px; /* 少しスリムに */
+        padding: 8px 16px;
         border-radius: 30px;
-        z-index: 99999;
-        font-size: 13px;
-        border: 1px solid #4ade80;
-        display: flex;
-        gap: 10px;
+        z-index: 100000; /* 🚀 z-indexを最大級に設定 */
+        font-size: 14px;
+        border: 2px solid #4ade80;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* 影をつけて浮き立たせる */
         pointer-events: none;
-        white-space: nowrap !important; /* 🚀 絶対に改行させない */
-        width: auto !important; /* 文字数に合わせて幅を自動調整 */
+        white-space: nowrap !important;
     }}
 
     /* 2. スマホ版(768px以下)の設定 */
@@ -827,9 +824,39 @@ with tab_build:
                     sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
                     for n in sub_names:
                         recipe_text += f"・{n} x{counts[n]}\n"
+                        
+            # 🚀 ここから追加：一括コピーボタン（HTML/JavaScript）
+            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
             
-            st.text_area("以下のテキストをコピーしてください", value=recipe_text, height=300)
-            st.caption("※SNSやメモ帳にそのまま貼り付けて使用できます。")
+            copy_button_html = f"""
+                <button id="copy-btn" style="
+                    width: 100%;
+                    background-color: #ff4b4b;
+                    color: white;
+                    border: none;
+                    padding: 10px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                ">📋 レシピをクリップボードにコピー</button>
+
+                <script>
+                document.getElementById('copy-btn').onclick = function() {{
+                    const text = `{escaped_text}`;
+                    navigator.clipboard.writeText(text).then(function() {{
+                        alert('クリップボードに一括コピーしました！');
+                    }}, function(err) {{
+                        console.error('コピーに失敗しました', err);
+                    }});
+                }};
+                </script>
+            """
+            st.components.v1.html(copy_button_html, height=60)
+
+            # 確認用の表示エリア
+            st.text_area("レシピの内容確認", value=recipe_text, height=300)
+            st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
 
     st.markdown("---")
 
