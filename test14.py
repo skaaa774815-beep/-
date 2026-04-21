@@ -713,25 +713,26 @@ with tab_build:
     # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
-    /* --- 1. 追従バー（PC/スマホ共通） --- */
+    /* 1. 追従バーの設定 */
     .floating-deck-status {{
         position: fixed;
-        bottom: 40px; /* PCでのManage app回避のため少し上げる */
-        right: 30px;
-        background: rgba(20, 25, 40, 0.95);
-        color: #ffffff;
-        padding: 8px 16px;
-        border-radius: 10px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        z-index: 1000000; /* 最前面 */
-        font-size: 14px;
-        font-weight: bold;
-        border: 1px solid #4ade80; /* 少し緑の縁取り */
-        backdrop-filter: blur(8px);
-        pointer-events: none; /* 下のボタンをクリックできるように透過 */
+        bottom: 20px;
+        right: 20px;
+        background: rgba(15, 17, 26, 0.95);
+        color: white;
+        padding: 6px 12px; /* 少しスリムに */
+        border-radius: 30px;
+        z-index: 99999;
+        font-size: 13px;
+        border: 1px solid #4ade80;
+        display: flex;
+        gap: 10px;
+        pointer-events: none;
+        white-space: nowrap !important; /* 🚀 絶対に改行させない */
+        width: auto !important; /* 文字数に合わせて幅を自動調整 */
     }}
 
-    /* 2. スマホ版(768px以下)の強制Grid設定 */
+    /* 2. スマホ版(768px以下)の設定 */
     @media (max-width: 768px) {{
         /* バーを上部に移動 */
         .floating-deck-status {{
@@ -740,34 +741,32 @@ with tab_build:
             left: 50% !important;
             right: auto !important;
             transform: translateX(-50%) !important;
+            max-width: 95% !important;
         }}
 
-        /* 🚀 変更点：Flexboxを捨てて「Grid」で画面を3等分のマス目にする */
-        div[data-testid="stHorizontalBlock"] {{
+        /* 🚀 絞り込みバー問題の解消 */
+        /* 「画像(img)を含んでいる列」だけを強制3列にする */
+        div[data-testid="stHorizontalBlock"]:has(img) {{
             display: grid !important;
-            grid-template-columns: repeat(3, 1fr) !important; /* 「1対1対1の3列にしろ」という絶対命令 */
-            gap: 8px !important; /* カードとカードの隙間 */
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 6px !important;
             width: 100% !important;
         }}
 
-        /* あの憎き「100%幅のグレーの箱」を、Gridの1マスに押し込める */
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-            width: 100% !important; /* マス目の中で100%（実質画面の約33%）になる */
-            min-width: 0 !important; /* はみ出し防止 */
+        div[data-testid="stHorizontalBlock"]:has(img) > div[data-testid="column"] {{
+            width: 100% !important;
+            min-width: 0 !important;
             margin: 0 !important;
         }}
 
-        /* 画像とボタンをそのマス目いっぱいに広げる */
-        div[data-testid="stHorizontalBlock"] img {{
+        div[data-testid="stHorizontalBlock"]:has(img) img {{
             width: 100% !important;
-            max-width: 100% !important; /* 前回の強制縮小を解除（マス目が小さいので自動で小さくなる） */
             height: auto !important;
             border-radius: 5px !important;
         }}
 
-        div[data-testid="stHorizontalBlock"] button {{
+        div[data-testid="stHorizontalBlock"]:has(img) button {{
             width: 100% !important;
-            max-width: 100% !important;
             font-size: 11px !important;
             padding: 2px !important;
             min-height: 25px !important;
@@ -776,8 +775,8 @@ with tab_build:
     </style>
     
     <div class="floating-deck-status">
-        <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span> / 3</span>
-        <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span> / 30</span>
+        <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span>/3</span>
+        <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
     </div>
     """, unsafe_allow_html=True)
 
