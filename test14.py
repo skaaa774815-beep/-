@@ -139,14 +139,21 @@ div[data-testid="stImage"] img {
     height: 100% !important;
     object-fit: cover !important;
 }
-/* デッキ作成画面のカード名ラベル調整 */
+/* ：カード名ラベル（2行分の高さを固定確保） */
 .card-label {
-    font-size: 0.85em;
-    text-align: center;
-    margin-top: 5px;
-    height: 2.8em;
-    overflow: hidden;
-    line-height: 1.2;
+    font-size: 11px !important;
+    text-align: center !important;
+    font-weight: bold !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    /* 2行分の高さを強制的に作る魔法 */
+    height: 32px !important; 
+    line-height: 1.2 !important;
+    margin: 4px 0 !important;
+    overflow: visible !important; /* 全文見せる */
+    word-break: break-all !important; /* 長い名前も途中で折る */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -710,6 +717,8 @@ with tab_build:
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
+    
+    
     # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
@@ -748,7 +757,7 @@ with tab_build:
         /* 「画像(img)を含んでいる列」だけを強制3列にする */
         div[data-testid="stHorizontalBlock"]:has(img) {{
             display: grid !important;
-            grid-template-columns: repeat(3, 1fr) !important;
+            grid-template-columns: repeat(4, 1fr) !important;
             gap: 6px !important;
             width: 100% !important;
         }}
@@ -838,6 +847,7 @@ with tab_build:
             with cols_c[idx % 8]:
                 if card_info:
                     st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-label'>{name}</div>", unsafe_allow_html=True)
                     st.button("➖", key=f"del_char_{idx}", on_click=remove_from_deck, args=(name, True), use_container_width=True)
     
     # アクション表示
@@ -853,6 +863,7 @@ with tab_build:
                     if card_info:
                         st.markdown(render_image_html(get_image_base64(card_info["path_or_url"], name)), unsafe_allow_html=True)
                         st.markdown(f"<div style='text-align:center; font-size:0.8rem; font-weight:bold;'>x{count}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='card-label'>{name}</div>", unsafe_allow_html=True)
                         btn_c1, btn_c2 = st.columns(2)
                         with btn_c1: st.button("➖", key=f"m_{name}", on_click=remove_from_deck, args=(name, False), use_container_width=True)
                         with btn_c2:
@@ -934,7 +945,7 @@ with tab_build:
                         with cols[j]:
                             name, tags = card["name"], card["tags"]
                             st.markdown(render_image_html(get_image_base64(card["path"], name)), unsafe_allow_html=True)
-                            
+                            st.markdown(f"<div class='card-label'>{name}</div>", unsafe_allow_html=True)
                             is_arcane = "秘伝" in tags
                             limit = 1 if is_arcane else 2
                             cur_cnt = st.session_state.deck_actions.count(name) if "キャラ" not in card["main"] else st.session_state.deck_chars.count(name)
