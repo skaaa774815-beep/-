@@ -731,55 +731,45 @@ with tab_build:
         pointer-events: none; /* 下のボタンをクリックできるように透過 */
     }}
 
-    /* --- 2. スマホ版(768px以下)の強制設定 --- */
+    /* 2. スマホ版(768px以下)の画像・ボタン強制縮小 */
     @media (max-width: 768px) {{
-        /* 📱 追従バー：スマホでは邪魔にならないよう「画面最上部」へ */
-        .floating-deck-status {{
-            top: 55px !important; 
-            bottom: auto !important;
-            left: 50% !important;
-            right: auto !important;
-            transform: translateX(-50%) !important;
-            width: 85% !important;
-            max-width: 400px !important;
-            text-align: center !important;
-            display: flex !important;
-            justify-content: center !important;
-            gap: 15px !important;
-        }}
-
-        /* 📱 【最重要】画像を縦並びにするStreamlitの仕様を破壊する */
-        /* カラムの親要素を横並びに強制 */
+        /* カラムの並びを横に固定 */
         div[data-testid="stHorizontalBlock"] {{
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: wrap !important;
-            align-items: flex-start !important;
-            width: 100% !important;
+            justify-content: flex-start !important;
         }}
 
-        /* 各カラム(カード1枚分)を幅33%に固定 */
+        /* 枠(カラム)の幅を3枚並び用に固定 */
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-            width: 32% !important; /* 余裕を持って32% */
-            flex: 0 0 32% !important;
-            min-width: 32% !important;
-            margin: 0 !important;
-            padding: 0 2px !important; /* カード間の隙間 */
+            width: 31% !important;
+            flex: 0 0 31% !important;
+            min-width: 31% !important;
+            padding: 2px !important;
         }}
 
-        /* 画像がはみ出さないように調整 */
+        /* 📸 画像そのものの最大サイズを強制指定 */
         div[data-testid="stHorizontalBlock"] img {{
             width: 100% !important;
+            max-width: 110px !important; /* ←ここを100px〜120pxにすると小さくなります */
             height: auto !important;
-            border-radius: 5px !important;
+            margin: 0 auto !important;
+            display: block !important;
         }}
 
-        /* ボタンの文字を小さくして1行に収める */
+        /* 🔘 ボタンも画像幅に合わせて小さく */
         div[data-testid="stHorizontalBlock"] button {{
             width: 100% !important;
-            padding: 0 !important;
+            max-width: 110px !important; 
             font-size: 10px !important;
-            min-height: 25px !important;
+            padding: 0 !important;
+            min-height: 24px !important;
+        }}
+        
+        /* 邪魔な余白をカット */
+        div[data-testid="stVerticalBlock"] {{
+            gap: 0.5rem !important;
         }}
     }}
     </style>
