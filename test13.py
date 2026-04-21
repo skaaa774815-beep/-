@@ -37,19 +37,75 @@ st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wi
 # --- スマホ・PC両対応の列制御CSS（スマート4列バージョン） ---
 st.markdown("""
 <style>
-/* 6列(検索結果)と8列(デッキ)で作られたカード一覧の枠だけを狙い撃ちして、スマホで4列に折り返す */
+/* ========== 全体設定 ========== */
+div[data-testid="stImage"] {
+    margin: 0 auto !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    background-color: transparent !important;
+}
+
+/* ========== タブ2: データベースの画像ギャラリー ========== */
+.responsive-gallery { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr) !important; /* スマホでは絶対に4列 */
+    gap: 8px; 
+    margin-bottom: 20px; 
+}
+@media (min-width: 768px) {
+    .responsive-gallery {
+        grid-template-columns: repeat(8, 1fr) !important; /* PCでは8列 */
+    }
+}
+.gallery-item { display: flex; flex-direction: column; align-items: center; }
+.gallery-item img { 
+    width: 100%; 
+    aspect-ratio: 140 / 240; 
+    object-fit: cover; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+}
+.gallery-item-title { 
+    text-align: center; font-size: 0.75em; margin-top: 5px; 
+    font-weight: bold; line-height: 1.2; word-break: break-word; 
+}
+
+/* ========== タブ3: デッキ作成のスマホレイアウト (768px以下) ========== */
 @media (max-width: 768px) {
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(6)),
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(8)) {
+    /* 画像を含み、かつ4列以上あるブロック（＝デッキのカード一覧）だけを狙い撃ち */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) {
         flex-direction: row !important;
         flex-wrap: wrap !important;
     }
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(6)) > [data-testid="column"],
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(8)) > [data-testid="column"] {
+    /* カード1枚分の枠を4等分（24%）に固定 */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) > div[data-testid="column"] {
         width: 24% !important;
-        flex: 1 1 24% !important;
+        flex: 0 0 24% !important;
         min-width: 24% !important;
-        padding: 0 2px !important; /* スマホ時の隙間調整 */
+        padding: 0 3px !important;
+        margin-bottom: 15px !important;
+    }
+
+    /* アクションカードの「➖」「➕」が縦に並ばないよう、内部の列を横並びに固定 */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 48% !important;
+        flex: 0 0 48% !important;
+        min-width: 48% !important;
+        padding: 0 !important;
+    }
+
+    /* ボタン（追加・外す・➕➖）のサイズを縮小してズレを防ぐ */
+    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) button {
+        padding: 2px !important;
+        font-size: 10px !important;
+        min-height: 28px !important;
+        width: 100% !important;
+        margin-top: 2px !important;
     }
 }
 </style>
@@ -340,30 +396,10 @@ def render_image_html(img_src):
     '''
 
 def render_image_gallery(cards_list):
-    html = '''
-    <style>
-    .responsive-gallery { 
-        display: grid; 
-        /* 👇 最低サイズを135pxから、スマホでも4列入る80pxに変更 */
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
-        gap: 15px; 
-        margin-bottom: 20px; 
-    }
-    .gallery-item { display: flex; flex-direction: column; align-items: center; }
-    .gallery-item img { 
-        width: 100%; 
-        /* 👇 max-width: 140px; を削除して枠に合わせる */
-        aspect-ratio: 140 / 240; 
-        object-fit: cover; 
-        border-radius: 10px; 
-        box-shadow: 0 4px 8px rgba(0,0,0,0.4); 
-    }
-    .gallery-item-title { text-align: center; font-size: 0.85em; margin-top: 8px; font-weight: bold; }
-    </style>
-    <div class="responsive-gallery">'''
+    html = '<div class="responsive-gallery">'
     for card in cards_list:
         src = get_image_base64(card["path"], card.get("name"))
-        img_tag = f'<img src="{src}">' if src else '<div style="width:100%; aspect-ratio: 140 / 240; background:#333; border-radius:10px;"></div>'
+        img_tag = f'<img src="{src}">' if src else '<div style="width:100%; aspect-ratio: 140 / 240; background:#333; border-radius:8px;"></div>'
         html += f'<div class="gallery-item">{img_tag}<div class="gallery-item-title">{card["name"]}</div></div>'
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
