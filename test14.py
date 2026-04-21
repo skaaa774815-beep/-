@@ -713,32 +713,62 @@ with tab_build:
     # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
+    /* =========================================
+       1. 追従するフローティングバーのデザイン
+       ========================================= */
     .floating-deck-status {{
         position: fixed;
         bottom: 20px;
         right: 20px;
-        background: rgba(30, 30, 45, 0.95); /* 半透明の暗い背景 */
+        background: rgba(25, 27, 40, 0.95);
         color: #ffffff;
         padding: 12px 24px;
         border-radius: 50px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
-        z-index: 999999; /* 一番手前に表示 */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+        z-index: 999999;
         font-size: 16px;
         font-weight: bold;
         display: flex;
         gap: 20px;
         border: 2px solid #555;
-        backdrop-filter: blur(4px);
+        backdrop-filter: blur(6px);
     }}
-    /* スマホ画面の時は下部の中央に配置する */
+
+    /* =========================================
+       2. スマホ(幅768px以下)の時の特別ルール
+       ========================================= */
     @media (max-width: 768px) {{
+        
+        /* 📱 追従バーの位置調整（赤いアイコン等と被らないように上にズラす） */
         .floating-deck-status {{
-            bottom: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: max-content;
-            padding: 10px 20px;
-            font-size: 14px;
+            bottom: 75px !important; /* 画面下からの距離を離す */
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: 85% !important; /* 画面幅の85%を使って中央配置 */
+            justify-content: center !important;
+            font-size: 15px !important;
+            padding: 10px !important;
+        }}
+
+        /* 📱 画像ギャラリーの強制横並び（1行に3枚） */
+        /* 画像(img)を含んでいるブロックを強制的に「横並び(row)」にする */
+        div[data-testid="stHorizontalBlock"]:has(img) {{
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }}
+        
+        /* 各画像が入っている列の幅を33%（3枚並び）に強制する */
+        div[data-testid="stHorizontalBlock"]:has(img) > div[data-testid="column"] {{
+            width: calc(33.33% - 0.5rem) !important;
+            flex: 1 1 calc(33.33% - 0.5rem) !important;
+            min-width: calc(33.33% - 0.5rem) !important;
+            margin-bottom: 10px !important; /* 下の隙間 */
+        }}
+
+        /* 📱 追加・削除ボタンのサイズ調整 */
+        div[data-testid="stHorizontalBlock"]:has(img) div[data-testid="stButton"] button {{
+            padding: 2px 5px !important;
+            min-height: 2rem !important;
         }}
     }}
     </style>
