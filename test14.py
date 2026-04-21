@@ -33,7 +33,7 @@ if "cloudinary" in st.secrets:
     )
 
 # --- ページ設定 ---
-st.set_page_config(page_title="七聖召喚デッキ解析ツール", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="【原神】七聖召喚デッキメーカー ",page_icon="sitiseishoukan.jpg", layout="wide", initial_sidebar_state="expanded")
 
 # --- スマホ・PC両対応の列制御CSS（スマート4列バージョン） ---
 st.markdown("""
