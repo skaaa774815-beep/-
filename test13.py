@@ -72,39 +72,46 @@ div[data-testid="stImage"] {
 
 /* ========== タブ3: デッキ作成のスマホレイアウト (768px以下) ========== */
 @media (max-width: 768px) {
-    /* 専用クラスを持つカードブロックだけを狙い撃ちして横並びに強制 */
+    /* "stHorizontalBlock" と "columns" の両方に対応させ、強制的に横並び・折り返しを有効化 */
+    div[data-testid="columns"]:has(.card-img-wrapper),
     div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) {
         flex-direction: row !important;
         flex-wrap: wrap !important;
+        gap: 2% !important; /* 列同士の間に少しだけ余白を作る */
     }
     
-    /* カード1枚分の枠を4等分（24%）に固定 */
+    /* 1列あたりの幅を約23%に指定し、1行に4枚が収まるようにする */
+    div[data-testid="columns"]:has(.card-img-wrapper) > div[data-testid="column"],
     div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) > div[data-testid="column"] {
-        width: 24% !important;
-        flex: 0 0 24% !important;
-        min-width: 24% !important;
-        padding: 0 3px !important;
-        margin-bottom: 15px !important;
+        width: 23% !important;
+        flex: 0 0 23% !important;
+        min-width: 23% !important;
+        padding: 0 !important;
+        margin-bottom: 10px !important;
     }
 
-    /* アクションカードの「➖」「➕」が縦に並ばないよう、内部の列を横並びに固定 */
-    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] {
+    /* アクションカード下部の「➖」「➕」ボタンの列も横並びに固定する */
+    div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="columns"],
+    div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] {
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 2px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    
+    /* ➖➕ボタンの各列を約半分の幅にする */
+    div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="columns"] > div[data-testid="column"],
+    div[data-testid="column"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: 48% !important;
         flex: 0 0 48% !important;
         min-width: 48% !important;
         padding: 0 !important;
     }
 
-    /* ボタン（追加・外す・➕➖）のサイズを縮小してズレを防ぐ */
-    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) button {
+    /* スマホ画面でボタンがはみ出さないようにサイズを調整 */
+    div[data-testid="column"]:has(.card-img-wrapper) button {
         padding: 2px !important;
-        font-size: 10px !important;
-        min-height: 28px !important;
+        font-size: 12px !important;
+        min-height: 32px !important;
         width: 100% !important;
         margin-top: 2px !important;
     }
