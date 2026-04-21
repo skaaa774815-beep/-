@@ -722,23 +722,20 @@ with tab_build:
     # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
     st.markdown(f"""
     <style>
-    /* 1. 追従バーの設定 */
     .floating-deck-status {{
         position: fixed;
-        bottom: 20px;
+        bottom: 85px; /* 🚀 下から少し浮かせてブラウザのツールバーとの重なりを防止 */
         right: 20px;
         background: rgba(15, 17, 26, 0.95);
         color: white;
-        padding: 6px 12px; /* 少しスリムに */
+        padding: 8px 16px;
         border-radius: 30px;
-        z-index: 99999;
-        font-size: 13px;
-        border: 1px solid #4ade80;
-        display: flex;
-        gap: 10px;
+        z-index: 100000; /* 🚀 z-indexを最大級に設定 */
+        font-size: 14px;
+        border: 2px solid #4ade80;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* 影をつけて浮き立たせる */
         pointer-events: none;
-        white-space: nowrap !important; /* 🚀 絶対に改行させない */
-        width: auto !important; /* 文字数に合わせて幅を自動調整 */
+        white-space: nowrap !important;
     }}
 
     /* 2. スマホ版(768px以下)の設定 */
@@ -754,7 +751,7 @@ with tab_build:
         }}
 
         /* 🚀 絞り込みバー問題の解消 */
-        /* 「画像(img)を含んでいる列」だけを強制3列にする */
+        /* 「画像(img)を含んでいる列」だけを強制4列にする */
         div[data-testid="stHorizontalBlock"]:has(img) {{
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
@@ -794,42 +791,44 @@ with tab_build:
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # 出力用テキストの構築（ロジックは変更なし）
-            recipe_text = "【デッキレシピ】\n\n"
-            recipe_text += "■キャラクターカード\n"
-            for c in st.session_state.deck_chars:
-                recipe_text += f"・{c}\n"
-            
-            recipe_text += "\n■アクションカード\n"
-            actions_with_info = []
-            for name in st.session_state.deck_actions:
-                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
-                sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
-                main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
-                if main == "天賦カード": sub = "天賦"
-                actions_with_info.append({"name": name, "sub": sub})
-            
-            df_actions = pd.DataFrame(actions_with_info)
-            if not df_actions.empty:
-                counts = Counter(st.session_state.deck_actions)
-                SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
-                present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
-                for sub_val in present_subs:
-                    recipe_text += f"（{sub_val}）\n"
-                    sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
-                    for n in sub_names:
-                        recipe_text += f"・{n} x{counts[n]}\n"
+            # (recipe_textの構築ロジックは変更なしのため省略 ... 既存のロジックをそのままお使いください)
+            # --- 構築された recipe_text を使います ---
 
-            # --- ここから変更 ---
-            # 1. コピーボタンの設置
-            if st.button("📋 レシピをコピーする", type="primary", use_container_width=True):
-                st.copy_to_clipboard(recipe_text)
-                st.success("クリップボードにコピーしました！")
+            # 🚀 エラー回避策：HTMLとJavaScriptを使用したコピーボタン
+            import urllib.parse
+            
+            # テキストをJavaScriptで扱えるようにエスケープ
+            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
+            
+            copy_button_html = f"""
+                <button id="copy-btn" style="
+                    width: 100%;
+                    background-color: #ff4b4b;
+                    color: white;
+                    border: none;
+                    padding: 10px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                ">📋 レシピをコピーする</button>
 
-            # 2. 確認用の表示（コピー失敗時や目視確認用）
-            st.text_area("レシピ内容", value=recipe_text, height=250, help="上のボタンで一括コピーできます")
+                <script>
+                document.getElementById('copy-btn').onclick = function() {{
+                    const text = `{escaped_text}`;
+                    navigator.clipboard.writeText(text).then(function() {{
+                        alert('クリップボードにコピーしました！');
+                    }}, function(err) {{
+                        console.error('コピーに失敗しました', err);
+                    }});
+                }};
+                </script>
+            """
+            st.components.v1.html(copy_button_html, height=60)
+
+            # 確認用のテキスト表示
+            st.text_area("レシピ内容", value=recipe_text, height=250)
             st.caption("※コピーしたテキストをそのままGeminiなどのAIに貼り付けて相談できます。")
-            # --- ここまで変更 ---
 
     st.markdown("---")
 
