@@ -710,19 +710,44 @@ with tab_build:
     char_count = len(st.session_state.deck_chars)
     action_count = len(st.session_state.deck_actions)
     
-    # HTMLとStreamlitコンポーネントを組み合わせて固定ヘッダーを作成
-    header_placeholder = st.container()
-    with header_placeholder:
-        st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
-        col_s1, col_s2, col_s3 = st.columns([1, 1, 1])
-        with col_s1: st.metric("👤 キャラ", f"{char_count} / 3")
-        with col_s2: st.metric("🃏 アクション", f"{action_count} / 30")
-        with col_s3:
-            if st.button("🗑️ 全クリア", use_container_width=True):
-                st.session_state.deck_chars = []
-                st.session_state.deck_actions = []
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # 🌟 追加：画面に常に追従するフローティングバー（CSS + HTML）
+    st.markdown(f"""
+    <style>
+    .floating-deck-status {{
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(30, 30, 45, 0.95); /* 半透明の暗い背景 */
+        color: #ffffff;
+        padding: 12px 24px;
+        border-radius: 50px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+        z-index: 999999; /* 一番手前に表示 */
+        font-size: 16px;
+        font-weight: bold;
+        display: flex;
+        gap: 20px;
+        border: 2px solid #555;
+        backdrop-filter: blur(4px);
+    }}
+    /* スマホ画面の時は下部の中央に配置する */
+    @media (max-width: 768px) {{
+        .floating-deck-status {{
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: max-content;
+            padding: 10px 20px;
+            font-size: 14px;
+        }}
+    }}
+    </style>
+    
+    <div class="floating-deck-status">
+        <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span> / 3</span>
+        <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span> / 30</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # --- 2. 📝 デッキレシピのテキスト出力（追加機能） ---
     with st.expander("📝 デッキレシピをテキストで出力"):
