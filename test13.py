@@ -72,13 +72,14 @@ div[data-testid="stImage"] {
 
 /* ========== タブ3: デッキ作成のスマホレイアウト (768px以下) ========== */
 @media (max-width: 768px) {
-    /* 画像を含み、かつ4列以上あるブロック（＝デッキのカード一覧）だけを狙い撃ち */
-    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) {
+    /* 専用クラスを持つカードブロックだけを狙い撃ちして横並びに強制 */
+    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) {
         flex-direction: row !important;
         flex-wrap: wrap !important;
     }
+    
     /* カード1枚分の枠を4等分（24%）に固定 */
-    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) > div[data-testid="column"] {
         width: 24% !important;
         flex: 0 0 24% !important;
         min-width: 24% !important;
@@ -87,12 +88,12 @@ div[data-testid="stImage"] {
     }
 
     /* アクションカードの「➖」「➕」が縦に並ばないよう、内部の列を横並びに固定 */
-    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] {
+    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] {
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 2px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: 48% !important;
         flex: 0 0 48% !important;
         min-width: 48% !important;
@@ -100,7 +101,7 @@ div[data-testid="stImage"] {
     }
 
     /* ボタン（追加・外す・➕➖）のサイズを縮小してズレを防ぐ */
-    div[data-testid="stHorizontalBlock"]:has(img):has(> div[data-testid="column"]:nth-child(4)) button {
+    div[data-testid="stHorizontalBlock"]:has(.card-img-wrapper) button {
         padding: 2px !important;
         font-size: 10px !important;
         min-height: 28px !important;
@@ -390,7 +391,7 @@ def get_image_base64(path, name=None):
 
 def render_image_html(img_src):
     return f'''
-    <div style="width: 100%; aspect-ratio: 140 / 240; margin: 0 auto 5px auto; overflow: hidden; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); background-color: #333;">
+    <div class="card-img-wrapper" style="width: 100%; aspect-ratio: 140 / 240; margin: 0 auto 5px auto; overflow: hidden; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); background-color: #333;">
         <img src="{img_src}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
     </div>
     '''
