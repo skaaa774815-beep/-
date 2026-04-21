@@ -714,61 +714,73 @@ with tab_build:
     st.markdown(f"""
     <style>
     /* =========================================
-       1. 追従するフローティングバーのデザイン
+       1. 追従バー（PC/スマホ共通）
        ========================================= */
     .floating-deck-status {{
         position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(25, 27, 40, 0.95);
-        color: #ffffff;
-        padding: 12px 24px;
-        border-radius: 50px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
-        z-index: 999999;
-        font-size: 16px;
-        font-weight: bold;
-        display: flex;
-        gap: 20px;
-        border: 2px solid #555;
-        backdrop-filter: blur(6px);
+        bottom: 30px; /* 下から少し浮かせ、Manage app等との重なりを防ぐ */
+        right: 30px;
+        background: rgba(15, 17, 26, 0.9);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        z-index: 10000; /* 十分に高い数値 */
+        font-size: 14px;
+        border: 1px solid #444;
+        backdrop-filter: blur(8px);
+        pointer-events: none; /* バー自体がクリックを邪魔しないように設定 */
     }}
 
     /* =========================================
-       2. スマホ(幅768px以下)の時の特別ルール
+       2. スマホ専用設定 (幅768px以下)
        ========================================= */
     @media (max-width: 768px) {{
         
-        /* 📱 追従バーの位置調整（赤いアイコン等と被らないように上にズラす） */
+        /* 📱 追従バー：スマホでは中央上部に配置（操作の邪魔にならない位置） */
         .floating-deck-status {{
-            bottom: 75px !important; /* 画面下からの距離を離す */
+            bottom: auto !important;
+            top: 60px !important; /* 画面の一番上、ヘッダーの下あたり */
             left: 50% !important;
+            right: auto !important;
             transform: translateX(-50%) !important;
-            width: 85% !important; /* 画面幅の85%を使って中央配置 */
-            justify-content: center !important;
-            font-size: 15px !important;
-            padding: 10px !important;
+            width: 90% !important;
+            max-width: 350px !important;
+            display: flex !important;
+            justify-content: space-around !important;
+            padding: 8px !important;
+            font-size: 13px !important;
         }}
 
-        /* 📱 画像ギャラリーの強制横並び（1行に3枚） */
-        /* 画像(img)を含んでいるブロックを強制的に「横並び(row)」にする */
-        div[data-testid="stHorizontalBlock"]:has(img) {{
+        /* 📱 画像の強制横3列：最優先で上書き */
+        /* Streamlitの全カラムコンテナを対象 */
+        [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
             flex-direction: row !important;
             flex-wrap: wrap !important;
-        }}
-        
-        /* 各画像が入っている列の幅を33%（3枚並び）に強制する */
-        div[data-testid="stHorizontalBlock"]:has(img) > div[data-testid="column"] {{
-            width: calc(33.33% - 0.5rem) !important;
-            flex: 1 1 calc(33.33% - 0.5rem) !important;
-            min-width: calc(33.33% - 0.5rem) !important;
-            margin-bottom: 10px !important; /* 下の隙間 */
+            gap: 5px !important;
         }}
 
-        /* 📱 追加・削除ボタンのサイズ調整 */
-        div[data-testid="stHorizontalBlock"]:has(img) div[data-testid="stButton"] button {{
-            padding: 2px 5px !important;
-            min-height: 2rem !important;
+        /* カラム1つずつの幅を31%程度に固定 */
+        [data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
+            width: calc(33% - 5px) !important;
+            min-width: calc(33% - 5px) !important;
+            flex: 0 0 calc(33% - 5px) !important;
+            margin-bottom: 5px !important;
+        }}
+
+        /* 画像サイズを枠いっぱいにフィットさせる */
+        [data-testid="stHorizontalBlock"] img {{
+            width: 100% !important;
+            height: auto !important;
+            object-fit: contain !important;
+        }}
+
+        /* ボタンのテキストを小さくしてはみ出し防止 */
+        [data-testid="stHorizontalBlock"] button {{
+            font-size: 10px !important;
+            padding: 0px !important;
+            min-height: 25px !important;
         }}
     }}
     </style>
