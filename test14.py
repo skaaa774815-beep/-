@@ -903,32 +903,36 @@ with tab_build:
 
     st.markdown("---")
 
-    # --- 3. 🔍 絞り込み検索（カテゴリ移動とソート適用） ---
+    # --- 3. 🔍 絞り込み検索（ファデュイ勢の判定修正版） ---
     st.subheader("🔎 カードを探す")
     
-    # データの準備と「天賦カード」の移動 ＆ キャラクターの自動分類
     raw_data = []
+    # プレイアブルとして扱うファデュイキャラのリスト
+    fatui_playable_names = ["リネ", "リネット", "フレミネ", "アルレッキーノ"]
+
     for c in st.session_state.cards_db:
         name = c["name"]
         main = st.session_state.custom_main_genres.get(name, c["main_genre"])
         sub = st.session_state.custom_subgroups.get(name, c["default_sub"])
         tags = st.session_state.custom_tags.get(name, [])
         
-        # 🚀 【修正1】天賦カードを「装備カード」の「天賦」枠に統合する
-        # これで、画像で見えていた「アクションカード」側の天賦枠が消え、装備カード側に合流します
+        # 🚀 天賦カードの統合
         if main == "天賦カード" or sub == "天賦":
             main = "装備カード"
             sub = "天賦"
             
-        # 🚀 【修正2】キャラカードをタグに応じて「プレイアブル」と「その他」に分ける
-        # 聖骸獣などがギャラリー上でも「📂 その他」フォルダに入ります
+        # 🚀 キャラカードの分類ロジックの修正
         if "キャラ" in main:
-            # 判定タグ：魔物, 聖骸, 特注, ファデュイ, ヒルチャール, 無相など
-            is_monster = any(t in ["魔物", "聖骸", "特注", "ファデュイ", "ヒルチャール", "召喚物", "無相"] for t in tags)
-            if is_monster:
+            # 基本の魔物判定（ファデュイを一旦外して判定）
+            is_monster_tag = any(t in ["魔物", "聖骸", "特注", "ヒルチャール", "召喚物", "無相"] for t in tags)
+            
+            # 「ファデュイタグを持っている」かつ「特定のプレイアブルリストに載っていない」場合のみ「その他」へ
+            is_fatui_monster = ("ファデュイ" in tags and name not in fatui_playable_names)
+            
+            if is_monster_tag or is_fatui_monster:
                 sub = "その他"
             else:
-                # 明示的に指定がないキャラはプレイアブルキャラとする
+                # 明示的に指定がない、またはリネ達のようなプレイアブルはここ
                 if sub == "デフォルト" or not sub:
                     sub = "プレイアブルキャラ"
             
