@@ -926,20 +926,35 @@ with tab_build:
     # --- 3. 🔍 絞り込み検索（カテゴリ移動とソート適用） ---
     st.subheader("🔎 カードを探す")
     
-    # データの準備と「天賦カード」の移動処理
+    # データの準備と「天賦カード」の移動 ＆ キャラクターの自動分類
     raw_data = []
     for c in st.session_state.cards_db:
-        main = st.session_state.custom_main_genres.get(c["name"], c["main_genre"])
-        sub = st.session_state.custom_subgroups.get(c["name"], c["default_sub"])
+        name = c["name"]
+        main = st.session_state.custom_main_genres.get(name, c["main_genre"])
+        sub = st.session_state.custom_subgroups.get(name, c["default_sub"])
+        tags = st.session_state.custom_tags.get(name, [])
         
-        # 【重要】大分類が「天賦カード」なら「アクションカード」の「天賦」へ移動
-        if main == "天賦カード":
-            main = "アクションカード"
+        # 🚀 【修正1】天賦カードを「装備カード」の「天賦」枠に統合する
+        # これで、画像で見えていた「アクションカード」側の天賦枠が消え、装備カード側に合流します
+        if main == "天賦カード" or sub == "天賦":
+            main = "装備カード"
             sub = "天賦"
             
+        # 🚀 【修正2】キャラカードをタグに応じて「プレイアブル」と「その他」に分ける
+        # 聖骸獣などがギャラリー上でも「📂 その他」フォルダに入ります
+        if "キャラ" in main:
+            # 判定タグ：魔物, 聖骸, 特注, ファデュイ, ヒルチャール, 無相など
+            is_monster = any(t in ["魔物", "聖骸", "特注", "ファデュイ", "ヒルチャール", "召喚物", "無相"] for t in tags)
+            if is_monster:
+                sub = "その他"
+            else:
+                # 明示的に指定がないキャラはプレイアブルキャラとする
+                if sub == "デフォルト" or not sub:
+                    sub = "プレイアブルキャラ"
+            
         raw_data.append({
-            "path": c["path_or_url"], "name": c["name"], "main": main, "sub": sub,
-            "tags": st.session_state.custom_tags.get(c["name"], [])
+            "path": c["path_or_url"], "name": name, "main": main, "sub": sub,
+            "tags": tags
         })
     df_build = pd.DataFrame(raw_data)
 
