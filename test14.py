@@ -859,7 +859,7 @@ with tab_build:
                 </script>
             """, height=60)
             st.text_area("内容確認", value=recipe_text.strip(), height=250)
-                st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
+            st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
                 
         st.markdown("---")
 
