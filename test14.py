@@ -710,63 +710,53 @@ with tab_build:
     from collections import Counter
     import pandas as pd
 
-    # --- 0. CSS設定：スマホ画面での「はみ出し」を徹底修正 ---
+    # --- 0. CSS設定：{{ }} を使用してPythonのf-stringエラーを回避 ---
     st.markdown(f"""
     <style>
-    [data-testid="stMetricContainer"] {{
-        background-color: rgba(28, 31, 46, 0.9);
-        padding: 10px;
-        border-radius: 10px;
-        border: 1px solid #4a4a4a;
-    }}
-    
-    /* ステータスバーの基本設定 */
+    /* ステータスバーのレスポンシブデザイン */
     .floating-deck-status {{
         position: fixed;
-        bottom: 85px;
-        right: 20px;
-        background: rgba(15, 17, 26, 0.95);
+        top: 60px; /* スマホのヘッダー下に配置 */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 92%;
+        max-width: 500px;
+        background: rgba(15, 17, 26, 0.98);
         color: white;
-        padding: 8px 16px;
-        border-radius: 30px;
-        z-index: 100000;
-        font-size: 14px;
-        border: 2px solid #4ade80;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        padding: 6px 12px;
+        border-radius: 12px;
+        z-index: 999;
+        border: 1.5px solid #4ade80;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         display: flex;
-        gap: 12px;
-        white-space: nowrap !important;
+        justify-content: space-between; /* 左右に等間隔配置 */
+        align-items: center;
     }}
 
-    /* 🚀 スマホ版(768px以下)の修正 */
+    .status-item {{
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: bold;
+    }}
+
+    /* カード名ラベルのはみ出し防止 */
+    .card-label {{
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        height: 2.4em !important;
+        overflow: hidden;
+        text-align: center;
+        margin-top: 4px;
+    }}
+
+    /* スマホ用グリッド強制調整 */
     @media (max-width: 768px) {{
-        .floating-deck-status {{
-            /* 下部だと操作の邪魔になるため、上部（タブの下）に配置 */
-            top: 58px !important;
-            bottom: auto !important;
-            left: 5% !important;
-            right: 5% !important;
-            width: 90% !important;
-            transform: none !important;
-            border-radius: 8px !important;
-            justify-content: space-around; /* 左右に均等配置してはみ出し防止 */
-            padding: 6px 10px !important;
-            font-size: 13px !important;
-            gap: 5px !important;
-        }}
-        
-        /* カードグリッドの調整：文字とボタンが重ならないよう余白を確保 */
         div[data-testid="stHorizontalBlock"]:has(.card-label) {{
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
-            gap: 4px !important;
-        }}
-        
-        .card-label {{
-            font-size: 0.6rem !important;
-            line-height: 1.1 !important;
-            height: 2.4em !important;
-            overflow: hidden;
+            gap: 6px !important;
         }}
     }}
     </style>
@@ -774,45 +764,114 @@ with tab_build:
 
     st.title("🛠️ オリジナルデッキ構築")
 
-    # 枚数計算
-    char_count = len(st.session_state.deck_chars)
-    action_count = len(st.session_state.deck_actions)
+    # 枚数計算（エラー防止のため初期化を確実に行う）
+    chars = st.session_state.get('deck_chars', [])
+    actions = st.session_state.get('deck_actions', [])
+    char_count = len(chars)
+    action_count = len(actions)
 
-    # 🚀 はみ出し防止用フローティングバー
+    # 🚀 はみ出し・重なりを防止したステータスバー
     st.markdown(f"""
     <div class="floating-deck-status">
-        <div>👤 <b>キャラ</b> <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span> / 3</div>
-        <div>🃏 <b>枚数</b> <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span> / 30</div>
+        <div class="status-item">
+            <span>👤 キャラ</span>
+            <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}/3</span>
+        </div>
+        <div class="status-item" style="border-left: 1px solid #444; padding-left: 12px;">
+            <span>🃏 枚数</span>
+            <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}/30</span>
+        </div>
     </div>
-    """, unsafe_allow_html=True)
+    <div style="margin-top: 50px;"></div> """, unsafe_allow_html=True)
 
-    # --- 1. 📝 デッキレシピのテキスト出力（以前の修正を継承） ---
+    # --- 1. 📝 デッキレシピのテキスト出力 ---
+    # recipe_text を事前に空文字で定義して NameError を防ぐ
+    recipe_text = ""
+    
     with st.expander("📝 デッキレシピをテキストで出力"):
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # ... (中略: レシピ生成ロジック) ...
-            # ここは以前お伝えした「天賦を装備に統合する」「0枚を表示しない」ロジックをそのまま使用してください
-            
-            # --- コピーボタン (スマホで横にはみ出さないよう width:100% と box-sizing を指定) ---
-            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
-            st.components.v1.html(f"""
-                <div style="box-sizing: border-box; width: 100%;">
-                    <button id="cp" style="width:100%; padding:12px; background:#ff4b4b; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:16px;">📋 レシピをコピーする</button>
-                </div>
-                <script>
-                document.getElementById('cp').addEventListener('click', function() {{
-                    navigator.clipboard.writeText(`{escaped_text}`).then(() => {{
-                        this.innerText = "✅ コピーしました！"; this.style.background = "#4ade80";
-                        setTimeout(() => {{ this.innerText = "📋 レシピをコピーする"; this.style.background = "#ff4b4b"; }}, 2000);
-                    }});
-                }});
-                </script>
-            """, height=70)
-            st.text_area("内容確認", value=recipe_text, height=300)
-            st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
+            total_cards = char_count + action_count
+            recipe_text = f"【デッキレシピ（計{total_cards}枚）】\n\n"
 
-    st.markdown("---")
+            # --- キャラカード仕分け ---
+            char_categorized = {"プレイアブルキャラ": [], "その他": []}
+            char_counts = Counter(chars)
+            db = st.session_state.get('cards_db', [])
+            
+            for name, count in char_counts.items():
+                card_info = next((c for c in db if c['name'] == name), None)
+                tags = st.session_state.custom_tags.get(name, [])
+                main_genre = card_info.get("main_genre", "") if card_info else ""
+                
+                is_other = ("魔物" in main_genre or any(t in ["魔物", "聖骸", "特注", "ファデュイ", "ヒルチャール", "無相"] for t in tags))
+                cat = "その他" if is_other else "プレイアブルキャラ"
+                char_categorized[cat].append(f"    ・{name} ×{count}")
+
+            if char_count > 0:
+                recipe_text += f"■ キャラカード ({char_count}枚)\n"
+                for sub in ["プレイアブルキャラ", "その他"]:
+                    if char_categorized[sub]:
+                        recipe_text += f"  ◆ {sub}\n" + "\n".join(char_categorized[sub]) + "\n"
+                recipe_text += "\n"
+
+            # --- アクションカード仕分け ---
+            sections = {
+                "装備カード": {"武器": [], "聖遺物": [], "天賦": []},
+                "支援カード": {"フィールド": [], "仲間": [], "アイテム": []},
+                "イベントカード": {"秘伝": [], "料理": [], "基本（未分類）": []}
+             section_counts = {"装備カード": 0, "支援カード": 0, "イベントカード": 0}
+
+            action_counts = Counter(actions)
+            for name, count in action_counts.items():
+                card_info = next((c for c in db if c['name'] == name), None)
+                if not card_info: continue
+                
+                m = st.session_state.custom_main_genres.get(name, card_info.get("main_genre", ""))
+                s = st.session_state.custom_subgroups.get(name, card_info.get("default_sub", ""))
+                t = st.session_state.custom_tags.get(name, [])
+
+                line = f"    ・{name} ×{count}"
+                if m == "天賦カード" or s == "天賦":
+                    sections["装備カード"]["天賦"].append(line); section_counts["装備カード"] += count
+                elif "武器" in m or "武器" in s:
+                    sections["装備カード"]["武器"].append(line); section_counts["装備カード"] += count
+                elif "聖遺物" in m or "聖遺物" in s:
+                    sections["装備カード"]["聖遺物"].append(line); section_counts["装備カード"] += count
+                elif "支援" in m:
+                    sub_cat = "仲間" if ("仲間" in s or "仲間" in t) else "フィールド"
+                    sections["支援カード"][sub_cat].append(line); section_counts["支援カード"] += count
+                elif "イベント" in m:
+                    if "秘伝" in t: sub_cat = "秘伝"
+                    elif "料理" in t or "料理" in s: sub_cat = "料理"
+                    else: sub_cat = "基本（未分類）"
+                    sections["イベントカード"][sub_cat].append(line); section_counts["イベントカード"] += count
+
+            for sec, sub_dict in sections.items():
+                if section_counts[sec] > 0:
+                    recipe_text += f"■ {sec} ({section_counts[sec]}枚)\n"
+                    for sub_name, lines in sub_dict.items():
+                        if lines: recipe_text += f"  ◆ {sub_name}\n" + "\n".join(lines) + "\n"
+                    recipe_text += "\n"
+
+            # --- コピーボタン ---
+            if recipe_text:
+                escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
+                st.components.v1.html(f"""
+                    <button id="cp" style="width:100%;padding:12px;background:#ff4b4b;color:white;border:none;border-radius:8px;font-weight:bold;">📋 レシピをコピー</button>
+                    <script>
+                    document.getElementById('cp').onclick = function() {{
+                        navigator.clipboard.writeText(`{escaped_text}`).then(() => {{
+                            this.innerText = "✅ コピー完了！"; this.style.background = "#4ade80";
+                        }});
+                    }}
+                    </script>
+                """, height=50)
+                st.text_area("内容確認", value=recipe_text.strip(), height=250)
+                st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
+                
+        st.markdown("---")
 
     # --- 2. 📋 現在の編成エリア ---
     st.subheader("📋 現在の編成")
