@@ -808,76 +808,98 @@ with tab_build:
     </div>
     """, unsafe_allow_html=True)
 
-    # --- 2. 📝 デッキレシピのテキスト出力（追加機能） ---
+    # --- 2. 📝 デッキレシピのテキスト出力 ---
     with st.expander("📝 デッキレシピをテキストで出力"):
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # 出力用テキストの構築
-            recipe_text = "【デッキレシピ】\n\n"
-            
-            # キャラクター
-            recipe_text += "■キャラクターカード\n"
-            for c in st.session_state.deck_chars:
-                recipe_text += f"・{c}\n"
-            
-            # アクションカード（ジャンル別）
-            recipe_text += "\n■アクションカード\n"
-            
-            # ジャンル分けの準備
-            actions_with_info = []
-            for name in st.session_state.deck_actions:
-                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
-                sub = st.session_state.custom_subgroups.get(name, card_info["default_sub"] if card_info else "未分類")
-                # 天賦カードの移動ルール適用
-                main = st.session_state.custom_main_genres.get(name, card_info["main_genre"] if card_info else "その他")
-                if main == "天賦カード": sub = "天賦"
-                actions_with_info.append({"name": name, "sub": sub})
-            
-            df_actions = pd.DataFrame(actions_with_info)
-            if not df_actions.empty:
-                counts = Counter(st.session_state.deck_actions)
-                # 定義したSUB_ORDER順に並べて出力
-                SUB_ORDER = ["天賦", "武器", "聖遺物", "特技", "元素共鳴", "国家共鳴", "料理", "秘伝", "フィールド", "仲間", "アイテム", "元素変幻"]
-                
-                present_subs = [s for s in SUB_ORDER if s in df_actions["sub"].unique()]
-                for sub_val in present_subs:
-                    recipe_text += f"（{sub_val}）\n"
-                    sub_names = sorted(df_actions[df_actions["sub"] == sub_val]["name"].unique())
-                    for n in sub_names:
-                        recipe_text += f"・{n} x{counts[n]}\n"
-                        
-            # 🚀 ここから追加：一括コピーボタン（HTML/JavaScript）
-            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
-            
-            copy_button_html = f"""
-                <button id="copy-btn" style="
-                    width: 100%;
-                    background-color: #ff4b4b;
-                    color: white;
-                    border: none;
-                    padding: 10px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                ">📋 レシピをクリップボードにコピー</button>
+            # 合計枚数の計算
+            total_cards = char_count + action_count
+            recipe_text = f"【デッキレシピ（計{total_cards}枚）】\n\n"
 
+            # --- ■ キャラカード ---
+            recipe_text += f"■ キャラカード ({char_count}枚)\n"
+            # 内部で「プレイアブル」や「魔物」を分けている場合はここで条件分岐
+            recipe_text += "  ◆ プレイアブルキャラ\n"
+            for name, count in st.session_state.deck_chars.items():
+                recipe_text += f"    ・{name} ×{count}\n"
+            recipe_text += "\n"
+
+            # --- 各カテゴリーの仕分けロジック ---
+            # 装備カード (武器, 聖遺物, 天賦)
+            equip_types = {"武器": [], "聖遺物": [], "天賦": []}
+            # 支援カード (フィールド, 仲間, アイテム)
+            support_types = {"フィールド": [], "仲間": [], "アイテム": []}
+            # イベントカード (秘伝, 料理, 基本)
+            event_types = {"秘伝": [], "料理": [], "基本（未分類）": []}
+
+            for name, count in st.session_state.deck_actions.items():
+                card_info = next((c for c in st.session_state.card_db if c['name'] == name), None)
+                if not card_info: continue
+                
+                ctype = card_info.get("type", "")
+                stype = card_info.get("sub_type", "")
+
+                # 🚀 ユーザーの要望：天賦は「装備カード」へ
+                if ctype == "天賦" or stype == "天賦":
+                    equip_types["天賦"].append(f"    ・{name} ×{count}")
+                elif ctype == "武器":
+                    equip_types["武器"].append(f"    ・{name} ×{count}")
+                elif ctype == "聖遺物":
+                    equip_types["聖遺物"].append(f"    ・{name} ×{count}")
+                elif ctype == "支援":
+                    if "仲間" in stype: support_types["仲間"].append(f"    ・{name} ×{count}")
+                    else: support_types["フィールド"].append(f"    ・{name} ×{count}")
+                elif ctype == "イベント":
+                    if "秘伝" in stype: event_types["秘伝"].append(f"    ・{name} ×{count}")
+                    elif "料理" in stype: event_types["料理"].append(f"    ・{name} ×{count}")
+                    else: event_types["基本（未分類）"].append(f"    ・{name} ×{count}")
+
+            # --- ■ 装備カードの出力 ---
+            equip_total = sum(len(v) for v in equip_types.values())
+            recipe_text += f"■ 装備カード ({equip_total}枚)\n"
+            for sub, lines in equip_types.items():
+                if lines:
+                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+            recipe_text += "\n"
+
+            # --- ■ 支援カードの出力 ---
+            support_total = sum(len(v) for v in support_types.values())
+            recipe_text += f"■ 支援カード ({support_total}枚)\n"
+            for sub, lines in support_types.items():
+                if lines:
+                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+            recipe_text += "\n"
+
+            # --- ■ イベントカードの出力 ---
+            event_total = sum(len(v) for v in event_types.values())
+            recipe_text += f"■ イベントカード ({event_total}枚)\n"
+            for sub, lines in event_types.items():
+                if lines:
+                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+
+            # === コピーボタンの処理（ここが else ブロックの内側にあることが重要） ===
+            escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
+            copy_button_html = f"""
+                <button id="copy-btn" style="width: 100%; padding: 10px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                    📋 レシピをコピーする
+                </button>
                 <script>
-                document.getElementById('copy-btn').onclick = function() {{
+                document.getElementById('copy-btn').addEventListener('click', function() {{
                     const text = `{escaped_text}`;
-                    navigator.clipboard.writeText(text).then(function() {{
-                        alert('クリップボードに一括コピーしました！');
-                    }}, function(err) {{
-                        console.error('コピーに失敗しました', err);
+                    navigator.clipboard.writeText(text).then(() => {{
+                        this.innerText = "✅ コピーしました！";
+                        this.style.backgroundColor = "#4ade80";
+                        setTimeout(() => {{
+                            this.innerText = "📋 レシピをコピーする";
+                            this.style.backgroundColor = "#ff4b4b";
+                        }}, 2000);
                     }});
-                }};
+                }});
                 </script>
             """
             st.components.v1.html(copy_button_html, height=60)
-
-            # 確認用の表示エリア
-            st.text_area("レシピの内容確認", value=recipe_text, height=300)
+            st.text_area("内容確認", value=recipe_text, height=300)
             st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
 
     st.markdown("---")
