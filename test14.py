@@ -764,40 +764,49 @@ with tab_build:
     </div>
     """, unsafe_allow_html=True)
 
-    # --- 1. 📝 デッキレシピのテキスト出力（天賦を装備に統合） ---
+    # --- 1. 📝 デッキレシピのテキスト出力（動的カテゴリ＆タグ判別版） ---
     with st.expander("📝 デッキレシピをテキストで出力"):
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # キャラをカウント (deck_charsがリストの場合を考慮してCounterを使用)
-            char_counts = Counter(st.session_state.deck_chars)
             total_cards = char_count + action_count
             recipe_text = f"【デッキレシピ（計{total_cards}枚）】\n\n"
 
-            # ■ キャラカード
-            recipe_text += f"■ キャラカード ({char_count}枚)\n  ◆ プレイアブルキャラ\n"
+            # --- ■ キャラカードの仕分け ---
+            char_categorized = {"プレイアブルキャラ": [], "その他": []}
+            char_counts = Counter(st.session_state.deck_chars)
+            
             for name, count in char_counts.items():
-                recipe_text += f"    ・{name} ×{count}\n"
-            recipe_text += "\n"
+                tags = st.session_state.custom_tags.get(name, [])
+                # 🚀 タグに「魔物」や「聖骸」が含まれる、または特定の名前なら「その他」へ
+                if any(t in ["魔物", "聖骸", "特注"] for t in tags):
+                    char_categorized["その他"].append(f"    ・{name} ×{count}")
+                else:
+                    char_categorized["プレイアブルキャラ"].append(f"    ・{name} ×{count}")
 
-            # 分類用辞書
+            # キャラカードセクションの出力
+            if char_count > 0:
+                recipe_text += f"■ キャラカード ({char_count}枚)\n"
+                for sub_name, lines in char_categorized.items():
+                    if lines:
+                        recipe_text += f"  ◆ {sub_name}\n" + "\n".join(lines) + "\n"
+                recipe_text += "\n"
+
+            # --- アクションカードの仕分けロジック ---
             equip_types = {"武器": [], "聖遺物": [], "天賦": []}
             support_types = {"フィールド": [], "仲間": [], "アイテム": []}
             event_types = {"秘伝": [], "料理": [], "基本（未分類）": []}
 
-            # アクションカードの仕分け
             action_counts = Counter(st.session_state.deck_actions)
             for name, count in action_counts.items():
-                # データベースから情報を取得 (cards_db または card_db)
                 db = st.session_state.get('cards_db', st.session_state.get('card_db', []))
                 card_info = next((c for c in db if c['name'] == name), None)
-                
                 if card_info:
                     main = st.session_state.custom_main_genres.get(name, card_info.get("main_genre", ""))
                     sub = st.session_state.custom_subgroups.get(name, card_info.get("default_sub", ""))
                     tags = st.session_state.custom_tags.get(name, [])
 
-                    # 🚀 天賦カードを「装備」に振り分け
+                    # カテゴリ振り分け（前回のロジックを継承）
                     if main == "天賦カード" or sub == "天賦":
                         equip_types["天賦"].append(f"    ・{name} ×{count}")
                     elif main == "武器" or sub == "武器":
@@ -805,32 +814,40 @@ with tab_build:
                     elif main == "聖遺物" or sub == "聖遺物":
                         equip_types["聖遺物"].append(f"    ・{name} ×{count}")
                     elif main == "支援カード":
-                        if "仲間" in sub or "仲間" in tags: support_types["仲間"].append(f"    ・{name} ×{count}")
-                        else: support_types["フィールド"].append(f"    ・{name} ×{count}")
+                        if any(t in ["仲間", "召喚物"] for t in tags) or "仲間" in sub:
+                            support_types["仲間"].append(f"    ・{name} ×{count}")
+                        else:
+                            support_types["フィールド"].append(f"    ・{name} ×{count}")
                     elif main == "イベントカード":
                         if "秘伝" in tags: event_types["秘伝"].append(f"    ・{name} ×{count}")
                         elif "料理" in tags or "料理" in sub: event_types["料理"].append(f"    ・{name} ×{count}")
                         else: event_types["基本（未分類）"].append(f"    ・{name} ×{count}")
 
-            # 各セクション出力
+            # --- 各セクションの出力（0枚なら表示しない） ---
             e_total = sum(len(v) for v in equip_types.values())
-            recipe_text += f"■ 装備カード ({e_total}枚)\n"
-            for k, v in equip_types.items():
-                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
-            recipe_text += "\n"
+            if e_total > 0:
+                recipe_text += f"■ 装備カード ({e_total}枚)\n"
+                for k, v in equip_types.items():
+                    if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
+                recipe_text += "\n"
 
             s_total = sum(len(v) for v in support_types.values())
-            recipe_text += f"■ 支援カード ({s_total}枚)\n"
-            for k, v in support_types.items():
-                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
-            recipe_text += "\n"
+            if s_total > 0:
+                recipe_text += f"■ 支援カード ({s_total}枚)\n"
+                for k, v in support_types.items():
+                    if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
+                recipe_text += "\n"
 
             v_total = sum(len(v) for v in event_types.values())
-            recipe_text += f"■ イベントカード ({v_total}枚)\n"
-            for k, v in event_types.items():
-                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
+            if v_total > 0:
+                recipe_text += f"■ イベントカード ({v_total}枚)\n"
+                for k, v in event_types.items():
+                    if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
 
-            # コピーボタン (JS版)
+            # 文末の余計な改行を除去して整形
+            recipe_text = recipe_text.strip()
+
+            # --- コピーボタン & 表示 ---
             escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
             st.components.v1.html(f"""
                 <button id="cp" style="width:100%;padding:10px;background:#ff4b4b;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:bold;">📋 レシピをコピーする</button>
