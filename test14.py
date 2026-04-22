@@ -710,195 +710,139 @@ with tab_build:
     from collections import Counter
     import pandas as pd
 
-    # --- 0. CSS設定：枚数カウントを画面上部に固定 ---
-    st.markdown("""
+    # --- 0. CSS設定：二重波括弧 {{ }} でNameErrorを回避 ---
+    st.markdown(f"""
     <style>
-    /* ステータスバーを固定する設定 */
-    [data-testid="stMetricContainer"] {
-        background-color: rgba(28, 31, 46, 0.9); /* 背景色(少し透過) */
+    [data-testid="stMetricContainer"] {{
+        background-color: rgba(28, 31, 46, 0.9);
         padding: 10px;
         border-radius: 10px;
         border: 1px solid #4a4a4a;
-    }
-    /* スクロール時に上部に張り付くコンテナ */
-    .sticky-header {
-        position: sticky;
-        top: 2.8rem;
-        z-index: 100;
-        background-color: #0e1117; /* アプリの背景色に合わせて調整 */
-        padding: 10px 0;
-        border-bottom: 2px solid #333;
-        margin-bottom: 20px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.title("🛠️ オリジナルデッキ構築")
-
-    # --- 1. 固定ステータスバー ---
-    char_count = len(st.session_state.deck_chars)
-    action_count = len(st.session_state.deck_actions)
-    
-    
-    
-    # --- 🌟 フローティングバーのCSS修正（重なり防止） ---
-    st.markdown(f"""
-    <style>
+    }}
     .floating-deck-status {{
         position: fixed;
-        bottom: 85px; /* 🚀 下から少し浮かせてブラウザのツールバーとの重なりを防止 */
+        bottom: 85px;
         right: 20px;
         background: rgba(15, 17, 26, 0.95);
         color: white;
         padding: 8px 16px;
         border-radius: 30px;
-        z-index: 100000; /* 🚀 z-indexを最大級に設定 */
+        z-index: 100000;
         font-size: 14px;
         border: 2px solid #4ade80;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* 影をつけて浮き立たせる */
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         pointer-events: none;
         white-space: nowrap !important;
     }}
-
-    /* 2. スマホ版(768px以下)の設定 */
     @media (max-width: 768px) {{
-        /* バーを上部に移動 */
         .floating-deck-status {{
             top: 55px !important;
             bottom: auto !important;
             left: 50% !important;
-            right: auto !important;
             transform: translateX(-50%) !important;
-            max-width: 95% !important;
         }}
-
-        /* 🚀 絞り込みバー問題の解消 */
-        /* 「画像(img)を含んでいる列」だけを強制3列にする */
         div[data-testid="stHorizontalBlock"]:has(.card-label) {{
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
             gap: 6px !important;
-            width: 100% !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(.card-label) > div[data-testid="column"] {{
-            width: 100% !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(.card-label) img {{
-            width: 100% !important;
-            height: auto !important;
-            border-radius: 5px !important;
-        }}
-
-        div[data-testid="stHorizontalBlock"]:has(.card-label) button {{
-            width: 100% !important;
-            font-size: 11px !important;
-            padding: 2px !important;
-            min-height: 25px !important;
         }}
     }}
     </style>
-    
+    """, unsafe_allow_html=True)
+
+    st.title("🛠️ オリジナルデッキ構築")
+
+    # 枚数計算
+    char_count = len(st.session_state.deck_chars)
+    action_count = len(st.session_state.deck_actions)
+
+    # フローティングバー表示
+    st.markdown(f"""
     <div class="floating-deck-status">
         <span>👤 キャラ: <span style="color: {'#ff4b4b' if char_count == 3 else '#4ade80'};">{char_count}</span>/3</span>
         <span>🃏 アクション: <span style="color: {'#ff4b4b' if action_count == 30 else '#4ade80'};">{action_count}</span>/30</span>
     </div>
     """, unsafe_allow_html=True)
 
-    # --- 2. 📝 デッキレシピのテキスト出力 ---
+    # --- 1. 📝 デッキレシピのテキスト出力（天賦を装備に統合） ---
     with st.expander("📝 デッキレシピをテキストで出力"):
         if char_count == 0 and action_count == 0:
             st.warning("カードが選択されていません。")
         else:
-            # 合計枚数の計算
+            # キャラをカウント (deck_charsがリストの場合を考慮してCounterを使用)
+            char_counts = Counter(st.session_state.deck_chars)
             total_cards = char_count + action_count
             recipe_text = f"【デッキレシピ（計{total_cards}枚）】\n\n"
 
-            # --- ■ キャラカード ---
-            recipe_text += f"■ キャラカード ({char_count}枚)\n"
-            # 内部で「プレイアブル」や「魔物」を分けている場合はここで条件分岐
-            recipe_text += "  ◆ プレイアブルキャラ\n"
-            for name, count in st.session_state.deck_chars.items():
+            # ■ キャラカード
+            recipe_text += f"■ キャラカード ({char_count}枚)\n  ◆ プレイアブルキャラ\n"
+            for name, count in char_counts.items():
                 recipe_text += f"    ・{name} ×{count}\n"
             recipe_text += "\n"
 
-            # --- 各カテゴリーの仕分けロジック ---
-            # 装備カード (武器, 聖遺物, 天賦)
+            # 分類用辞書
             equip_types = {"武器": [], "聖遺物": [], "天賦": []}
-            # 支援カード (フィールド, 仲間, アイテム)
             support_types = {"フィールド": [], "仲間": [], "アイテム": []}
-            # イベントカード (秘伝, 料理, 基本)
             event_types = {"秘伝": [], "料理": [], "基本（未分類）": []}
 
-            for name, count in st.session_state.deck_actions.items():
-                card_info = next((c for c in st.session_state.card_db if c['name'] == name), None)
-                if not card_info: continue
+            # アクションカードの仕分け
+            action_counts = Counter(st.session_state.deck_actions)
+            for name, count in action_counts.items():
+                # データベースから情報を取得 (cards_db または card_db)
+                db = st.session_state.get('cards_db', st.session_state.get('card_db', []))
+                card_info = next((c for c in db if c['name'] == name), None)
                 
-                ctype = card_info.get("type", "")
-                stype = card_info.get("sub_type", "")
+                if card_info:
+                    main = st.session_state.custom_main_genres.get(name, card_info.get("main_genre", ""))
+                    sub = st.session_state.custom_subgroups.get(name, card_info.get("default_sub", ""))
+                    tags = st.session_state.custom_tags.get(name, [])
 
-                # 🚀 ユーザーの要望：天賦は「装備カード」へ
-                if ctype == "天賦" or stype == "天賦":
-                    equip_types["天賦"].append(f"    ・{name} ×{count}")
-                elif ctype == "武器":
-                    equip_types["武器"].append(f"    ・{name} ×{count}")
-                elif ctype == "聖遺物":
-                    equip_types["聖遺物"].append(f"    ・{name} ×{count}")
-                elif ctype == "支援":
-                    if "仲間" in stype: support_types["仲間"].append(f"    ・{name} ×{count}")
-                    else: support_types["フィールド"].append(f"    ・{name} ×{count}")
-                elif ctype == "イベント":
-                    if "秘伝" in stype: event_types["秘伝"].append(f"    ・{name} ×{count}")
-                    elif "料理" in stype: event_types["料理"].append(f"    ・{name} ×{count}")
-                    else: event_types["基本（未分類）"].append(f"    ・{name} ×{count}")
+                    # 🚀 天賦カードを「装備」に振り分け
+                    if main == "天賦カード" or sub == "天賦":
+                        equip_types["天賦"].append(f"    ・{name} ×{count}")
+                    elif main == "武器" or sub == "武器":
+                        equip_types["武器"].append(f"    ・{name} ×{count}")
+                    elif main == "聖遺物" or sub == "聖遺物":
+                        equip_types["聖遺物"].append(f"    ・{name} ×{count}")
+                    elif main == "支援カード":
+                        if "仲間" in sub or "仲間" in tags: support_types["仲間"].append(f"    ・{name} ×{count}")
+                        else: support_types["フィールド"].append(f"    ・{name} ×{count}")
+                    elif main == "イベントカード":
+                        if "秘伝" in tags: event_types["秘伝"].append(f"    ・{name} ×{count}")
+                        elif "料理" in tags or "料理" in sub: event_types["料理"].append(f"    ・{name} ×{count}")
+                        else: event_types["基本（未分類）"].append(f"    ・{name} ×{count}")
 
-            # --- ■ 装備カードの出力 ---
-            equip_total = sum(len(v) for v in equip_types.values())
-            recipe_text += f"■ 装備カード ({equip_total}枚)\n"
-            for sub, lines in equip_types.items():
-                if lines:
-                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+            # 各セクション出力
+            e_total = sum(len(v) for v in equip_types.values())
+            recipe_text += f"■ 装備カード ({e_total}枚)\n"
+            for k, v in equip_types.items():
+                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
             recipe_text += "\n"
 
-            # --- ■ 支援カードの出力 ---
-            support_total = sum(len(v) for v in support_types.values())
-            recipe_text += f"■ 支援カード ({support_total}枚)\n"
-            for sub, lines in support_types.items():
-                if lines:
-                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+            s_total = sum(len(v) for v in support_types.values())
+            recipe_text += f"■ 支援カード ({s_total}枚)\n"
+            for k, v in support_types.items():
+                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
             recipe_text += "\n"
 
-            # --- ■ イベントカードの出力 ---
-            event_total = sum(len(v) for v in event_types.values())
-            recipe_text += f"■ イベントカード ({event_total}枚)\n"
-            for sub, lines in event_types.items():
-                if lines:
-                    recipe_text += f"  ◆ {sub}\n" + "\n".join(lines) + "\n"
+            v_total = sum(len(v) for v in event_types.values())
+            recipe_text += f"■ イベントカード ({v_total}枚)\n"
+            for k, v in event_types.items():
+                if v: recipe_text += f"  ◆ {k}\n" + "\n".join(v) + "\n"
 
-            # === コピーボタンの処理（ここが else ブロックの内側にあることが重要） ===
+            # コピーボタン (JS版)
             escaped_text = recipe_text.replace("`", "\\`").replace("$", "\\$")
-            copy_button_html = f"""
-                <button id="copy-btn" style="width: 100%; padding: 10px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                    📋 レシピをコピーする
-                </button>
+            st.components.v1.html(f"""
+                <button id="cp" style="width:100%;padding:10px;background:#ff4b4b;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:bold;">📋 レシピをコピーする</button>
                 <script>
-                document.getElementById('copy-btn').addEventListener('click', function() {{
-                    const text = `{escaped_text}`;
-                    navigator.clipboard.writeText(text).then(() => {{
-                        this.innerText = "✅ コピーしました！";
-                        this.style.backgroundColor = "#4ade80";
-                        setTimeout(() => {{
-                            this.innerText = "📋 レシピをコピーする";
-                            this.style.backgroundColor = "#ff4b4b";
-                        }}, 2000);
+                document.getElementById('cp').addEventListener('click', function() {{
+                    navigator.clipboard.writeText(`{escaped_text}`).then(() => {{
+                        this.innerText = "✅ コピーしました！"; this.style.background = "#4ade80";
+                        setTimeout(() => {{ this.innerText = "📋 レシピをコピーする"; this.style.background = "#ff4b4b"; }}, 2000);
                     }});
                 }});
                 </script>
-            """
-            st.components.v1.html(copy_button_html, height=60)
+            """, height=60)
             st.text_area("内容確認", value=recipe_text, height=300)
             st.caption("※上のボタンを押すと一括コピーされます。SNSやAIへの相談にそのまま貼り付けて使用できます。")
 
