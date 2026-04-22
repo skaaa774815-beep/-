@@ -804,7 +804,7 @@ with tab_build:
                         recipe_text += f"  ◆ {sub}\n" + "\n".join(char_categorized[sub]) + "\n"
                 recipe_text += "\n"
 
-            # アクションカード仕分け（ここを修正しました）
+            # アクションカード仕分け（判定条件を強化）
             sections = {
                 "装備カード": {"武器": [], "聖遺物": [], "天賦": []},
                 "支援カード": {"フィールド": [], "仲間": [], "アイテム": []},
@@ -822,6 +822,7 @@ with tab_build:
                 t = st.session_state.custom_tags.get(name, [])
                 line = f"    ・{name} ×{count}"
 
+                # --- 判定ロジック ---
                 if m == "天賦カード" or s == "天賦":
                     sections["装備カード"]["天賦"].append(line); sec_totals["装備カード"] += count
                 elif "武器" in m or "武器" in s:
@@ -832,9 +833,13 @@ with tab_build:
                     sub_c = "仲間" if ("仲間" in s or "仲間" in t) else "フィールド"
                     sections["支援カード"][sub_c].append(line); sec_totals["支援カード"] += count
                 elif "イベント" in m:
-                    if "秘伝" in t: sub_c = "秘伝"
-                    elif "料理" in t or "料理" in s: sub_c = "料理"
-                    else: sub_c = "基本（未分類）"
+                    # 🚀 秘伝判定：タグ(t) または 小分類(s) に「秘伝」が含まれるかをチェック
+                    if "秘伝" in t or "秘伝" in s: 
+                        sub_c = "秘伝"
+                    elif "料理" in t or "料理" in s: 
+                        sub_c = "料理"
+                    else: 
+                        sub_c = "基本（未分類）"
                     sections["イベントカード"][sub_c].append(line); sec_totals["イベントカード"] += count
 
             for sec_name in ["装備カード", "支援カード", "イベントカード"]:
