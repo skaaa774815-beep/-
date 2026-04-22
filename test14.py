@@ -908,7 +908,7 @@ with tab_build:
     
     raw_data = []
     # プレイアブルとして扱うファデュイキャラのリスト
-    fatui_playable_names = ["リネ", "リネット", "フレミネ", "アルレッキーノ"]
+    fatui_playable_names = ["タルタリヤ","リネ", "リネット", "フレミネ", "アルレッキーノ"]
 
     for c in st.session_state.cards_db:
         name = c["name"]
