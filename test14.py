@@ -775,19 +775,37 @@ with tab_build:
             # --- ■ キャラカードの仕分け ---
             char_categorized = {"プレイアブルキャラ": [], "その他": []}
             char_counts = Counter(st.session_state.deck_chars)
+            db = st.session_state.get('cards_db', st.session_state.get('card_db', []))
             
             for name, count in char_counts.items():
+                # データベースからカード情報を取得
+                card_info = next((c for c in db if c['name'] == name), None)
                 tags = st.session_state.custom_tags.get(name, [])
-                # 🚀 タグに「魔物」や「聖骸」が含まれる、または特定の名前なら「その他」へ
-                if any(t in ["魔物", "聖骸", "特注"] for t in tags):
+                
+                # デフォルトのメインジャンルを取得
+                main_genre = ""
+                if card_info:
+                    main_genre = card_info.get("main_genre", "")
+
+                # 🚀 判定条件を強化
+                # 1. メインジャンルが「魔物カード」である
+                # 2. タグに「魔物」「聖骸」「特注」「ファデュイ」「ヒルチャール」「無相」などが含まれる
+                is_other = (
+                    "魔物" in main_genre or 
+                    any(t in ["魔物", "聖骸", "特注", "ファデュイ", "ヒルチャール", "召喚物", "無相"] for t in tags)
+                )
+
+                if is_other:
                     char_categorized["その他"].append(f"    ・{name} ×{count}")
                 else:
                     char_categorized["プレイアブルキャラ"].append(f"    ・{name} ×{count}")
 
-            # キャラカードセクションの出力
+            # キャラカードセクションの出力（中身がある場合のみ）
             if char_count > 0:
                 recipe_text += f"■ キャラカード ({char_count}枚)\n"
-                for sub_name, lines in char_categorized.items():
+                # 「プレイアブルキャラ」→「その他」の順で表示
+                for sub_name in ["プレイアブルキャラ", "その他"]:
+                    lines = char_categorized[sub_name]
                     if lines:
                         recipe_text += f"  ◆ {sub_name}\n" + "\n".join(lines) + "\n"
                 recipe_text += "\n"
