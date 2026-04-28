@@ -575,8 +575,8 @@ with tab_analyze:
                 
                 # 膨張サイズ: 8 (カーネルサイズを8x8に変更)
                 # 膨張回数: 1
-                kernel = np.ones((5, 5), np.uint8) 
-                edges = cv2.dilate(edges, kernel, iterations=1)
+                kernel = np.ones((3, 3), np.uint8) 
+                edges = cv2.dilate(edges, kernel, iterations=2)
                 
                 contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
                 potential_rects = []
