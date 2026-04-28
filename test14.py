@@ -571,11 +571,11 @@ with tab_analyze:
                 
                 # --- 検証ツールで見つけた黄金比パラメータ ---
                 # Canny閾値: 94 - 101
-                edges = cv2.Canny(gray, 80, 140)
+                edges = cv2.Canny(gray, 50, 150)
                 
                 # 膨張サイズ: 8 (カーネルサイズを8x8に変更)
                 # 膨張回数: 1
-                kernel = np.ones((5, 5), np.uint8) 
+                kernel = np.ones((3, 3), np.uint8) 
                 edges = cv2.dilate(edges, kernel, iterations=1)
                 
                 contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
