@@ -552,25 +552,50 @@ with st.sidebar:
 tab_analyze, tab_database, tab_build, tab_update = st.tabs(["📷 画像解析", "🗃️ データベース", "🛠️ デッキ作成","🆙 画像更新"])
 
 # ==========================================
-# タブ1：デッキ画像解析
+# タブ1：デッキ画像解析（精度改善＆手動修正機能付き）
 # ==========================================
 with tab_analyze:
-    st.title("🃏 七聖召喚 デッキ画像解析 Webツール")
-    uploaded_file = st.file_uploader("デッキのスクリーンショットをアップロードしてください", type=["png", "jpg", "jpeg", "webp"])
+    import cv2
+    import numpy as np
+    from PIL import Image
+    from collections import Counter
+
+    st.title("📸 七聖召喚 デッキ画像解析")
+    st.write("スクリーンショットを解析し、自動でリスト化します。誤認識は後から修正可能です。")
+
+    # --- 補助関数：重なり率 (IoU) の計算 ---
+    # これにより、隣り合った「クク竜」を重複とみなさず、正しく2枚として認識します
+    def get_iou(r1, r2):
+        x1, y1, w1, h1 = r1
+        x2, y2, w2, h2 = r2
+        inter_x = max(x1, x2)
+        inter_y = max(y1, y2)
+        inter_w = min(x1+w1, x2+w2) - inter_x
+        inter_h = min(y1+h1, y2+h2) - inter_y
+        if inter_w <= 0 or inter_h <= 0: return 0
+        inter_area = inter_w * inter_h
+        return inter_area / float(w1 * h1 + w2 * h2 - inter_area)
+
+    # セッション状態の初期化
+    if 'detected_counts' not in st.session_state:
+        st.session_state.detected_counts = {}
+
+    uploaded_file = st.file_uploader("画像をアップロード", type=["png", "jpg", "jpeg", "webp"])
 
     if uploaded_file is not None:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="アップロードされた画像")
+        st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="アップロード画像", use_container_width=True)
         
-        if st.button("✨ 画像を解析する", type="primary"):
+        if st.button("✨ 解析を開始する", type="primary"):
             with st.spinner("画像を解析中..."):
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 img_area = img.shape[0] * img.shape[1]
                 img_w = img.shape[1]
                 
+                # エッジ検出（膨張を控えめにしてカード同士の合体を防ぐ）
                 edges = cv2.Canny(gray, 50, 150)
-                kernel = np.ones((3,3), np.uint8)
+                kernel = np.ones((2,2), np.uint8) 
                 edges = cv2.dilate(edges, kernel, iterations=1)
                 
                 contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -580,71 +605,100 @@ with tab_analyze:
                     if h == 0: continue
                     aspect_ratio = w / float(h)
                     area = w * h
-                    if 0.45 < aspect_ratio < 0.85 and (img_area * 0.005 < area < img_area * 0.2):
+                    # 七聖召喚のカードのアスペクト比に近いものを抽出
+                    if 0.5 < aspect_ratio < 0.8 and (img_area * 0.003 < area < img_area * 0.15):
                         potential_rects.append((x, y, w, h))
                 
+                # 精密な重複排除（IoUベース）
                 unique_rects = []
+                potential_rects.sort(key=lambda r: r[2]*r[3], reverse=True) # 大きい順に処理
                 for r in potential_rects:
-                    x, y, w, h = r
                     is_duplicate = False
-                    for ux, uy, uw, uh in unique_rects:
-                        if abs(x - ux) < w/2 and abs(y - uy) < h/2:
-                            is_duplicate = True; break
-                    if not is_duplicate: unique_rects.append(r)
+                    for ur in unique_rects:
+                        if get_iou(r, ur) > 0.4: # 40%以上重なっていたら同一カードとみなす
+                            is_duplicate = True
+                            break
+                    if not is_duplicate:
+                        unique_rects.append(r)
                 
-                final_rects = [r for r in unique_rects if (img_w * 0.15 < (r[0] + r[2]/2) < img_w * 0.85)]
-                final_rects.sort(key=lambda r: (r[1]//100, r[0]))
+                # 画面端の極端なノイズを除去（左右5%に緩和）
+                final_rects = [r for r in unique_rects if (img_w * 0.05 < (r[0] + r[2]/2) < img_w * 0.95)]
+                final_rects.sort(key=lambda r: (r[1]//50, r[0])) # 行ごとにソート
                 
                 if not final_rects:
-                    st.error("カードの枠を検出できませんでした。別の画像を試してください。")
-                elif not db_hashes:
-                    st.error("比較用のカード画像がありません。")
+                    st.error("カードを検出できませんでした。")
                 else:
-                    detected_cards_list = []
+                    detected_list = []
+                    # ハッシュ比較によるカード特定
                     for x, y, w, h in final_rects:
                         roi = img[y:y+h, x:x+w]
-                        target_hash = get_image_hash(Image.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)))
+                        roi_pil = Image.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
+                        target_hash = get_image_hash(roi_pil) # 共通関数を想定
                         
                         best_match, min_diff = None, float('inf')
-                        for name, db_hash in db_hashes.items():
+                        for name, db_hash in db_hashes.items(): # db_hashesは事前に計算済みを想定
                             diff = np.count_nonzero(target_hash != db_hash)
                             if diff < min_diff:
                                 min_diff = diff; best_match = name
                         
-                        if best_match and min_diff < 80:
-                            detected_cards_list.append(best_match)
+                        if best_match and min_diff < 100:
+                            detected_list.append(best_match)
+                    
+                    # 結果をセッションに保存（枚数調整用）
+                    st.session_state.detected_counts = Counter(detected_list)
+                    st.success(f"解析完了！ {len(detected_list)}枚見つかりました。")
 
-                    if detected_cards_list:
-                        st.success(f"解析成功！ {len(detected_cards_list)}枚のカードを検出しました。")
-                        st.markdown("### 🎴 検出されたカード")
-                        display_detected = []
-                        for name in detected_cards_list:
-                            card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
-                            display_detected.append({"name": name, "path": card_info["path_or_url"] if card_info else ""})
-                        render_image_gallery(display_detected)
-                        st.markdown("---")
-                        
-                        counts = {}
-                        for name in detected_cards_list: counts[name] = counts.get(name, 0) + 1
-                        recipe_text = generate_deck_recipe_text(counts)
+    # --- 解析後の修正・反映エリア ---
+    if st.session_state.detected_counts:
+        st.divider()
+        st.subheader("📝 検出結果の確認・修正")
+        st.info("AIが間違えている場合は、以下の数字を変更してください。（例：クク竜を2に修正）")
 
-                        st.markdown("### 📋 解析結果テキスト")
-                        st.code(recipe_text, language="text")
-                        
-                        # --- ここからGeminiへのリンクを追加 ---
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown("👇 テキストをコピーしてAIにデッキの相談をする")
-                        st.markdown(
-                            """
-                            <a href="https://gemini.google.com/" target="_blank" style="text-decoration: none;">
-                                <div style="display: inline-flex; align-items: center; background-color: #f0f4f9; color: #1f1f1f; padding: 10px 20px; border-radius: 20px; border: 1px solid #dadce0; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                    <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" width="24" style="margin-right: 10px;">
-                                    Geminiを開く（別タブ）
-                                </div>
-                            </a>
-                            """,
-                            unsafe_allow_html=True
-                        )
+        col_count = 0
+        cols = st.columns(3)
+        updated_counts = {}
+
+        for name, count in st.session_state.detected_counts.items():
+            with cols[col_count % 3]:
+                # ここでユーザーが手動修正できる！
+                new_val = st.number_input(f"{name}", min_value=0, max_value=2, value=count, key=f"adj_{name}")
+                updated_counts[name] = new_val
+            col_count += 1
+
+        if st.button("🚀 この内容でデッキを作成する", type="primary", use_container_width=True):
+            # デッキ作成タブ（st.session_state.deck_chars / actions）へデータを飛ばす
+            chars = []
+            actions = []
+            for name, count in updated_counts.items():
+                if count == 0: continue
+                # cards_dbから種類を判定（キャラかアクションか）
+                card_info = next((c for c in st.session_state.cards_db if c["name"] == name), None)
+                if card_info:
+                    if "キャラ" in card_info.get("main_genre", ""):
+                        chars.extend([name] * count)
+                    else:
+                        actions.extend([name] * count)
+            
+            st.session_state.deck_chars = chars
+            st.session_state.deck_actions = actions
+            st.balloons()
+            st.success("デッキ作成タブに反映しました！タブを切り替えて確認してください。")
+
+        # レシピテキスト表示
+        recipe_text = generate_deck_recipe_text(updated_counts) # 既存の関数を流用
+        st.text_area("コピー用テキスト", value=recipe_text, height=200)
+
+        # Geminiリンク
+        st.markdown(
+            """
+            <a href="https://gemini.google.com/" target="_blank" style="text-decoration: none;">
+                <div style="display: inline-flex; align-items: center; background-color: #f0f4f9; color: #1f1f1f; padding: 10px 20px; border-radius: 20px; border: 1px solid #dadce0; font-weight: bold; margin-top:10px;">
+                    <img src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" width="24" style="margin-right: 10px;">
+                    Geminiでこのデッキを相談する
+                </div>
+            </a>
+            """, unsafe_allow_html=True
+        )
 
 # ==========================================
 # タブ2：カードデータベース一覧
